@@ -95,6 +95,8 @@ def _build_cameras(cams_cfg: dict) -> dict:
                       width=c["width"], height=c["height"], fps=c["fps"])
         if c.get("fourcc"):  # e.g. MJPG — needed for 640x480@30 on the RS USB cams
             kwargs["fourcc"] = c["fourcc"]
+        if c.get("warmup_s"):  # slow-start cams (the HD scene cam needs >1s for frame 1)
+            kwargs["warmup_s"] = c["warmup_s"]
         out[name] = OpenCVCameraConfig(**{k: v for k, v in kwargs.items() if k in fields})
     return out
 
@@ -110,6 +112,38 @@ def _build(config_base, make_fn, spec: dict, extra: dict):
     fields = {f.name for f in dataclasses.fields(cls)}
     kwargs = {k: v for k, v in extra.items() if k in fields and v is not None}
     return make_fn(cls(**kwargs))
+
+
+def _live_phase(kw, prompt: str, max_s: float = 3600.0) -> str:
+    """Keep leader→follower teleop mirroring LIVE while waiting at a prompt.
+
+    Mirrors canonical record(): between episodes it runs record_loop WITHOUT a
+    dataset so the operator can stage the scene/arm. Without this the follower
+    freezes during SET UP/RESET and jumps when recording starts.
+    Returns the user's input, stripped/lowercased ('q' on EOF/Ctrl+C).
+    """
+    kw_live = dict(kw)
+    kw_live["dataset"] = None
+    kw["events"]["exit_early"] = False
+    err: dict = {}
+
+    def _t():
+        try:
+            record_loop(**{**kw_live, "control_time_s": int(max_s)})
+        except BaseException as e:
+            err["e"] = e
+
+    th = threading.Thread(target=_t, daemon=True)
+    th.start()
+    try:
+        ans = input(prompt)
+    except (EOFError, KeyboardInterrupt):
+        ans = "q"
+    kw["events"]["exit_early"] = True
+    th.join()
+    if "e" in err:
+        raise err["e"]
+    return ans.strip().lower()
 
 
 def _record_segment(kw, max_s: float) -> float:
@@ -158,7 +192,7 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
     task = d["single_task"]
     target = int(num_episodes if num_episodes is not None else d["num_episodes"])
     max_s = float(d.get("episode_time_s", 60))
-    states = d.get("start_states") or ["(vary the hand position / orientation)"]
+    states = d.get("start_states") or ["(vary the target bar / mallet start position)"]
     state_cycle = cycle(states)
 
     if display and init_visualization is None:
@@ -183,12 +217,21 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
 
     action_features = hw_to_dataset_features(robot.action_features, "action")
     obs_features = hw_to_dataset_features(robot.observation_features, "observation")
-    dataset = LeRobotDataset.create(
-        repo_id=d["repo_id"], fps=fps,
-        features={**action_features, **obs_features},
-        robot_type=robot.name, use_videos=True, image_writer_threads=4,
-        root=d.get("root"),
-    )
+    try:
+        dataset = LeRobotDataset.create(
+            repo_id=d["repo_id"], fps=fps,
+            features={**action_features, **obs_features},
+            robot_type=robot.name, use_videos=True, image_writer_threads=4,
+            root=d.get("root"),
+        )
+    except Exception:
+        # Dataset already exists (e.g. a previous session) → resume into it,
+        # the same way lerobot-record --resume does on this LeRobot version.
+        dataset = LeRobotDataset(d["repo_id"], root=d.get("root"))
+        if cams and hasattr(dataset, "start_image_writer"):
+            dataset.start_image_writer(num_processes=0, num_threads=4)
+        print(f"↩  Resuming existing dataset '{d['repo_id']}' "
+              f"({dataset.num_episodes} episode(s) already saved).")
 
     procs = make_default_processors()
     events = {"exit_early": False, "rerecord_episode": False, "stop_recording": False}
@@ -215,11 +258,12 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
                 print(f"\n{BAR}\n EPISODE {dataset.num_episodes + 1}   "
                       f"(demo {i + 1} of {target} this run · {saved} saved total)\n{BAR}\n")
                 while True:  # repeat until this demo is kept
-                    print("STEP 1 · SET UP")
+                    print("STEP 1 · SET UP  (teleop LIVE — follower mirrors the leader)")
                     print(f" • Start state: {state}  (cycles every demo)")
-                    print(" • Move the LEADER arm to your start pose (follower mirrors live).")
-                    print(" • Have the helper present the hand; drive the task deliberately.\n")
-                    if input(" >> Press ENTER to START recording (q = finish session): ").strip().lower() == "q":
+                    print(" • Move the LEADER arm to your start pose.")
+                    print(" • Place the mallet at its start spot; xylophone fully in view.\n")
+                    if _live_phase(loop_kw,
+                                   " >> Press ENTER to START recording (q = finish session): ") == "q":
                         raise _Finish()
 
                     print(f"\n 🔴 RECORDING… perform the task now (auto-stops at {int(max_s)}s).")
@@ -243,8 +287,10 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
                     break
 
                 if i < target - 1:
-                    print("STEP 4 · RESET — reset the scene / hand position for the next demo.\n")
-                    input(" >> Press ENTER when the scene is ready for the next demo: ")
+                    print("STEP 4 · RESET  (teleop LIVE) — reset mallet/target bar for the next demo.\n")
+                    if _live_phase(loop_kw,
+                                   " >> Press ENTER when the scene is ready (q = finish session): ") == "q":
+                        raise _Finish()
     except _Finish:
         pass
     finally:

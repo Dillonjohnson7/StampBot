@@ -10,7 +10,7 @@ dataset.
    MotorBridge motor init (all 7 joints online).
 2. `xylobot can-up` then `xylobot doctor` — everything ✅.
 3. `xylobot calibrate all` — one-time on RS (see [calibration.md](./calibration.md)).
-4. `xylobot teleop --display` — confirm the follower tracks the leader and the
+4. `xylobot teleop` — confirm the follower tracks the leader and the
    camera(s) clearly see the mallet and the xylophone bars. Fix any reversed joints.
 
 ## Setup: one operator
@@ -35,7 +35,7 @@ your motion, so smooth, controlled demos → a smooth, controlled policy.
 ## Scene setup (keep it consistent, vary the target note)
 
 - Mount the camera(s) so the **mallet and bars are always in view**: a wrist
-  camera sees the grasp and the strike; a second (front/overhead) camera sees
+  camera sees the grasp and the strike; the overhead scene camera sees
   the whole workspace, the mallet, and the xylophone.
 - Consistent, diffuse lighting; avoid moving shadows and glare on the bars.
 - **Vary what you want to generalize over:** target note/bar (low / middle /

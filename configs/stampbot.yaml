@@ -51,6 +51,7 @@ cameras:
     height: 720
     fps: 30
     fourcc: MJPG
+    warmup_s: 4                  # this cam needs >1s to deliver its first frame
   wrist:
     type: opencv
     index_or_path: /dev/video0   # external "LRCP G720P" — mounted on the arm
@@ -58,6 +59,7 @@ cameras:
     height: 480
     fps: 30
     fourcc: MJPG
+    warmup_s: 2
 
 # --- Dataset (recorded demonstrations) --------------------------------------
 dataset:

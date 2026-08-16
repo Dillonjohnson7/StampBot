@@ -15,7 +15,7 @@ sys.path.insert(0, str(REPO))
 
 calls = {"save": 0, "clear": 0, "finalize": 0, "push": 0, "connect": 0,
          "disconnect": 0, "record_loop": 0, "enc_enter": 0, "enc_exit": 0,
-         "register": 0}
+         "register": 0, "live": 0}
 
 
 @dataclasses.dataclass
@@ -38,6 +38,7 @@ class FakeOpenCVCameraConfig:
     height: int = 0
     fps: int = 0
     fourcc: str = None
+    warmup_s: int = 1
 
 
 class FakeRobot:
@@ -65,7 +66,7 @@ class FakeDataset:
 
 def fake_record_loop(**kw):
     import time
-    calls["record_loop"] += 1
+    calls["live" if kw.get("dataset") is None else "record_loop"] += 1
     ev = kw["events"]
     for _ in range(100000):
         if ev.get("exit_early"):
@@ -141,7 +142,8 @@ def test_two_demos_with_one_redo():
     assert rc == 0
     assert calls["save"] == 2          # both demos kept
     assert calls["clear"] == 1         # one redo cleared the buffer
-    assert calls["record_loop"] == 3   # 2 kept + 1 redone
+    assert calls["record_loop"] == 3   # 2 kept + 1 redone (recording segments)
+    assert calls["live"] == 4          # teleop stays live: setup x3 + reset x1
     assert calls["connect"] == 2 and calls["disconnect"] == 2
     assert calls["finalize"] == 1
     assert calls["push"] == 1          # saved>0 and push_to_hub true

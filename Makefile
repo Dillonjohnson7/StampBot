@@ -22,7 +22,7 @@ calibrate:  ## Calibrate follower + leader
 	xb calibrate all
 
 teleop:  ## Drive follower with the leader
-	xb teleop --display
+	xb teleop
 
 record:  ## Record demonstrations
 	xb record
