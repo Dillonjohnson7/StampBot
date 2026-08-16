@@ -18,6 +18,7 @@ message — fall back to the plain CLI: `xylobot record --raw`.
 from __future__ import annotations
 
 import contextlib
+import os
 import dataclasses
 import importlib
 import threading
@@ -146,19 +147,30 @@ def _live_phase(kw, prompt: str, max_s: float = 3600.0) -> str:
     return ans.strip().lower()
 
 
-def _record_segment(kw, max_s: float) -> float:
+def _record_segment(kw, max_s: float) -> tuple[float, bool]:
     """Run one record_loop until the user presses ENTER (or max_s elapses).
 
     record_loop breaks its inner loop when events["exit_early"] is True (verified
-    against source), so we run it in a thread and flip that flag on ENTER. Thread
-    exceptions are re-raised on the main thread rather than being swallowed.
+    against source), so we run it in a thread and flip that flag on ENTER.
+
+    SAFETY: if the max_s cap expires before ENTER, the thread hands off
+    seamlessly into a LIVE (non-recording) teleop loop, so the follower keeps
+    mirroring the leader — it never freezes mid-motion and never jumps when the
+    next phase starts. Returns (recorded_seconds, capped).
     """
     kw["events"]["exit_early"] = False
     err: dict = {}
+    state = {"entered": False, "capped": False}
 
     def _target():
         try:
             record_loop(**{**kw, "control_time_s": int(max_s)})
+            if not state["entered"]:
+                # Timer expired (not ENTER): keep teleop live until the user acts.
+                state["capped"] = True
+                live = dict(kw)
+                live["dataset"] = None
+                record_loop(**{**live, "control_time_s": 10800})
         except BaseException as e:  # surface real failures (bad camera, CAN, etc.)
             err["e"] = e
 
@@ -169,11 +181,13 @@ def _record_segment(kw, max_s: float) -> float:
         input()  # ENTER stops the demo
     except (EOFError, KeyboardInterrupt):
         pass
+    state["entered"] = True
     kw["events"]["exit_early"] = True
     t.join()
     if "e" in err:
         raise err["e"]
-    return time.perf_counter() - start
+    elapsed = time.perf_counter() - start
+    return (min(elapsed, max_s), True) if state["capped"] else (elapsed, False)
 
 
 def _disconnect(dev) -> None:
@@ -187,6 +201,9 @@ def _disconnect(dev) -> None:
 
 
 def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) -> int:
+    # Tame the SVT-AV1 encoder's console spam during video encoding (it logs
+    # its whole config banner per episode per camera). 1 = errors only.
+    os.environ.setdefault("SVT_LOG", "1")
     d = cfg["dataset"]
     fps = int(d["fps"])
     task = d["single_task"]
@@ -266,9 +283,14 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
                                    " >> Press ENTER to START recording (q = finish session): ") == "q":
                         raise _Finish()
 
-                    print(f"\n 🔴 RECORDING… perform the task now (auto-stops at {int(max_s)}s).")
+                    print(f"\n 🔴 RECORDING… perform the task now "
+                          f"(recording caps at {int(max_s)}s — mirroring stays live).")
                     print(" >> Press ENTER to STOP.", flush=True)
-                    elapsed = _record_segment(loop_kw, max_s)
+                    elapsed, capped = _record_segment(loop_kw, max_s)
+                    if capped:
+                        print(f"\n ⚠ Hit the {int(max_s)}s cap — recording stopped there, "
+                              f"but teleop kept mirroring (no jump). Raise "
+                              f"dataset.episode_time_s if demos need longer.")
                     print(f"\n Captured ~{int(elapsed * fps)} frames ({elapsed:.1f}s).\n")
 
                     choice = input("STEP 3 · KEEP THIS DEMO?  [ENTER]=keep · r=redo · q=save & quit: ").strip().lower()

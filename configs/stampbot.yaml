@@ -69,7 +69,8 @@ dataset:
   single_task: "Pick up the mallet and strike the xylophone to play a note."
   fps: 30
   num_episodes: 50          # target number of demos
-  episode_time_s: 30        # max seconds per episode
+  episode_time_s: 60        # cap on RECORDED length; if hit, recording stops
+                            # but teleop mirroring continues (no freeze/jump)
   reset_time_s: 10          # pause between episodes to reset the scene
   push_to_hub: true         # upload to Hugging Face Hub after recording
   root: null                # local dir override (null = ~/.cache/huggingface/lerobot)
