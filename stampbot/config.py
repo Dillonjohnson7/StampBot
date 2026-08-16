@@ -47,7 +47,14 @@ def load_config(path: str | os.PathLike | None = None) -> dict[str, Any]:
 
 # --- flag builders ----------------------------------------------------------
 
-def robot_flags(cfg: dict) -> list[str]:
+def robot_flags(cfg: dict, *, cameras: bool = True) -> list[str]:
+    """Follower --robot.* flags.
+
+    Set cameras=False for commands that only drive the motors (calibrate,
+    replay): attaching cameras there forces LeRobot to open them and can block
+    the command if a camera index is wrong. Recording and policy rollout need
+    the cameras (they are the observation), so cameras=True there.
+    """
     f = cfg["follower"]
     flags = [
         f"--robot.type={f['type']}",
@@ -57,7 +64,7 @@ def robot_flags(cfg: dict) -> list[str]:
     if f.get("can_adapter"):
         flags.append(f"--robot.can_adapter={f['can_adapter']}")
     cams = cfg.get("cameras") or {}
-    if cams:
+    if cameras and cams:
         flags.append("--robot.cameras=" + json.dumps(cams, separators=(",", ":")))
     return flags
 

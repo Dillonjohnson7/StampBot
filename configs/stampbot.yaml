@@ -24,8 +24,9 @@ leader:
   type: rebot_arm_102_leader
   port: /dev/ttyUSB0        # <-- CHANGE ME if different (run `stampbot find-ports`)
   id: rebot_arm_102_leader
-  # If a joint moves backwards during teleop, flip its sign here (else leave null):
-  # joint_directions: {"shoulder_pan": -1, "wrist_roll": -1, "gripper": -6}
+  # If a joint moves backwards during teleop, flip its sign here (else leave
+  # null). Confirm the actual RS joint names from the teleop output first.
+  # joint_directions: {"<joint_name>": -1}
   joint_directions: null
 
 # --- Cameras (observation space for the policy) -----------------------------
@@ -48,7 +49,9 @@ cameras:
 # --- Dataset (recorded demonstrations) --------------------------------------
 dataset:
   repo_id: CHANGE_ME/stampbot_stamping   # <HF_USER>/<name>
-  single_task: "Pick up the stamp, press it on the ink pad, then stamp the paper."
+  # The stamp is built into the end-effector — no inking, no paper. The policy
+  # finds the person's hand and gently presses the stamp onto it.
+  single_task: "Locate the person's hand and gently press the built-in stamp onto the back of the hand."
   fps: 30
   num_episodes: 50          # target number of demos
   episode_time_s: 30        # max seconds per episode
