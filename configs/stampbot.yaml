@@ -30,33 +30,32 @@ leader:
   joint_directions: null
 
 # --- Cameras (observation space for the policy) -----------------------------
-# Matches the reference machine's 30fps devices: `front` on /dev/video0, `side`
-# on /dev/video4, both MJPG (fourcc "MJPG" is needed to hit these resolutions at
-# 30 on these USB cams — without it cv2.VideoCapture can hang on connect).
-# `index_or_path` is the OpenCV device index (0,1,2...) or a /dev/video* path.
-# Remove a camera you don't have.
+# Two EXTERNAL USB cameras (never the laptop's built-in webcam). fourcc "MJPG"
+# is required to hit these resolutions at 30fps on these cams. `index_or_path`
+# is a /dev/video* path (more stable than a bare index).
 #
-# FRAMERATE FINDINGS (reference machine):
-#   - front /dev/video0 is the external "LRCP G720P" camera: 30fps, 640x480.
-#   - side  /dev/video4 is the integrated-webcam's 30fps node: 30fps, 640x360.
-#   - AVOID the integrated-cam node /dev/video2 — it only does 10fps.
-#   - Run `lerobot-find-cameras opencv` and pick the 30fps-capable devices;
-#     a camera can expose several /dev/video* nodes with different max fps.
-#   - Every camera here maxes at 30fps. Recording at 60fps would require
-#     60fps-capable cameras (these are not) — do not raise fps past 30.
+# REFERENCE MACHINE MAPPING (confirmed by looking at the feeds):
+#   - scene /dev/video6 = external "UVC HD Camera": overhead view of the whole
+#     workspace (xylophone + mallet + arm). 30fps at 1280x720.
+#   - wrist /dev/video0 = external "LRCP G720P" on the arm: 30fps at 640x480.
+#   - AVOID the laptop's integrated webcam (/dev/video2 = 10fps, /dev/video4 =
+#     black). Every camera here maxes at 30fps — do NOT set fps above 30.
+#   - The scene cam (video6) can get grabbed by the desktop's pipewire; if it
+#     won't open, free it: `systemctl --user restart wireplumber`.
+#   - Verify your own devices with `lerobot-find-cameras opencv`.
 cameras:
-  front:
+  scene:
     type: opencv
-    index_or_path: /dev/video0   # external "LRCP G720P" camera (30fps, 640x480)
-    width: 640
-    height: 480
+    index_or_path: /dev/video6   # external "UVC HD Camera" — overhead workspace view
+    width: 1280
+    height: 720
     fps: 30
     fourcc: MJPG
-  side:
+  wrist:
     type: opencv
-    index_or_path: /dev/video4   # integrated-webcam 30fps node (30fps, 640x360)
+    index_or_path: /dev/video0   # external "LRCP G720P" — mounted on the arm
     width: 640
-    height: 360
+    height: 480
     fps: 30
     fourcc: MJPG
 
