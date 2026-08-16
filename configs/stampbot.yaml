@@ -1,5 +1,5 @@
 # ============================================================================
-# StampBot central config — edit this ONE file, every tool reads from it.
+# XyloBot central config — edit this ONE file, every tool reads from it.
 #
 # Copy to configs/stampbot.local.yaml to override without touching git:
 #     cp configs/stampbot.yaml configs/stampbot.local.yaml
@@ -9,7 +9,7 @@
 #   https://wiki.seeedstudio.com/rebot_arm_b601_rs_lerobot/
 # ============================================================================
 
-# --- Follower arm: reBot Arm B601-RS (the arm that physically stamps) --------
+# --- Follower arm: reBot Arm B601-RS (the arm that strikes the xylophone) ----
 # The RS follower talks over SocketCAN, so its "port" is a CAN interface
 # (can0), NOT a /dev/tty* serial device. Bring it up first:
 #     sudo ip link set can0 up type can bitrate 1000000     (or: stampbot can-up)
@@ -30,32 +30,42 @@ leader:
   joint_directions: null
 
 # --- Cameras (observation space for the policy) -----------------------------
-# Matches the reference RS rig: `front` on index 0, `side` on index 6, both
-# MJPG (fourcc "MJPG" is needed to hit 640x480@30 on these USB cams — without it
-# cv2.VideoCapture can hang on connect). `index_or_path` is the OpenCV device
-# index (0,1,2...) or a /dev/video* path. Remove a camera you don't have.
+# Matches the reference machine's 30fps devices: `front` on /dev/video0, `side`
+# on /dev/video4, both MJPG (fourcc "MJPG" is needed to hit these resolutions at
+# 30 on these USB cams — without it cv2.VideoCapture can hang on connect).
+# `index_or_path` is the OpenCV device index (0,1,2...) or a /dev/video* path.
+# Remove a camera you don't have.
+#
+# FRAMERATE FINDINGS (reference machine):
+#   - front /dev/video0 is the external "LRCP G720P" camera: 30fps, 640x480.
+#   - side  /dev/video4 is the integrated-webcam's 30fps node: 30fps, 640x360.
+#   - AVOID the integrated-cam node /dev/video2 — it only does 10fps.
+#   - Run `lerobot-find-cameras opencv` and pick the 30fps-capable devices;
+#     a camera can expose several /dev/video* nodes with different max fps.
+#   - Every camera here maxes at 30fps. Recording at 60fps would require
+#     60fps-capable cameras (these are not) — do not raise fps past 30.
 cameras:
   front:
     type: opencv
-    index_or_path: 0        # <-- CHANGE ME if different
+    index_or_path: /dev/video0   # external "LRCP G720P" camera (30fps, 640x480)
     width: 640
     height: 480
     fps: 30
     fourcc: MJPG
   side:
     type: opencv
-    index_or_path: 6        # <-- CHANGE ME if different
+    index_or_path: /dev/video4   # integrated-webcam 30fps node (30fps, 640x360)
     width: 640
-    height: 480
+    height: 360
     fps: 30
     fourcc: MJPG
 
 # --- Dataset (recorded demonstrations) --------------------------------------
 dataset:
-  repo_id: CHANGE_ME/stampbot_stamping   # <HF_USER>/<name>
-  # The stamp is built into the end-effector — no inking, no paper. The policy
-  # finds the person's hand and gently presses the stamp onto it.
-  single_task: "Locate the person's hand and gently press the built-in stamp onto the back of the hand."
+  repo_id: CHANGE_ME/xylobot_xylophone   # <HF_USER>/<name>
+  # A mallet is picked up by the end-effector and used to strike the xylophone
+  # bars. The policy plays notes by targeting different bars along the keyboard.
+  single_task: "Pick up the mallet and strike the xylophone to play a note."
   fps: 30
   num_episodes: 50          # target number of demos
   episode_time_s: 30        # max seconds per episode
@@ -63,13 +73,13 @@ dataset:
   push_to_hub: true         # upload to Hugging Face Hub after recording
   root: null                # local dir override (null = ~/.cache/huggingface/lerobot)
   # The guided recorder cycles these hints each demo so you vary the scene.
-  # For hand-stamping, vary where/how the helper presents the hand:
+  # For xylophone playing, vary which bars to target and the rig layout:
   start_states:
-    - "hand at LEFT of the workspace, back of hand up"
-    - "hand CENTER, slightly angled"
-    - "hand at RIGHT, back of hand up"
-    - "hand CENTER, closer to the arm"
-    - "hand FAR, near the edge of reach"
+    - "target the LOW bars (left end)"
+    - "target the MIDDLE bars"
+    - "target the HIGH bars (right end)"
+    - "mallet rotated / shifted"
+    - "xylophone moved within reach"
 
 # --- Policy / training ------------------------------------------------------
 policy:
@@ -77,8 +87,8 @@ policy:
   device: cuda              # cuda | cpu | mps
   batch_size: 8
   steps: 100000
-  output_dir: outputs/train/act_stamping
-  job_name: act_stamping
+  output_dir: outputs/train/act_xylobot
+  job_name: act_xylobot
   wandb: false
 
 # --- CAN interface (RS follower uses SocketCAN) -----------------------------

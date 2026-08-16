@@ -1,4 +1,4 @@
-"""Load StampBot config and turn it into LeRobot CLI flags.
+"""Load XyloBot config and turn it into LeRobot CLI flags.
 
 One YAML drives every command. `stampbot.local.yaml` (gitignored) overrides
 `stampbot.yaml` so each person can keep their own ports without a merge.

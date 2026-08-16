@@ -1,15 +1,15 @@
-"""StampBot CLI — thin, config-driven wrappers around the LeRobot commands.
+"""XyloBot CLI — thin, config-driven wrappers around the LeRobot commands.
 
-    stampbot doctor                 # check your environment is ready
-    stampbot find-ports            # discover USB ports for the arms
-    stampbot can-up                # bring up the SocketCAN interface (RS)
-    stampbot calibrate all         # calibrate follower, then leader (one-time)
-    stampbot teleop                # drive follower with the leader
-    stampbot record                # record demonstrations
-    stampbot replay --episode 0    # replay a recorded episode on the arm
-    stampbot visualize --episode 0 # view a recorded episode
-    stampbot train                 # train the policy (act / pi0 / pi05)
-    stampbot eval --policy-path P  # run a trained policy on the real arm
+    xylobot doctor                 # check your environment is ready
+    xylobot find-ports            # discover USB ports for the arms
+    xylobot can-up                # bring up the SocketCAN interface (RS)
+    xylobot calibrate all         # calibrate follower, then leader (one-time)
+    xylobot teleop                # drive follower with the leader
+    xylobot record                # record demonstrations
+    xylobot replay --episode 0    # replay a recorded episode on the arm
+    xylobot visualize --episode 0 # view a recorded episode
+    xylobot train                 # train the policy (act / pi0 / pi05)
+    xylobot eval --policy-path P  # run a trained policy on the real arm
 
 Add --dry-run to any command (before OR after the subcommand) to print the exact
 LeRobot command instead of running it. Add --config PATH for a non-default config.
@@ -35,7 +35,7 @@ VLA_POLICIES = {"pi0", "pi05", "pi0.5", "smolvla"}
 def _bin(name: str) -> str | None:
     """Resolve a command on PATH, or in this interpreter's own bin dir.
 
-    lerobot-* live in the same venv bin as `sb`; when `sb` is launched by full
+    lerobot-* live in the same venv bin as `xb`; when `xb` is launched by full
     path without activating the venv, that dir isn't on PATH, so check it too.
     """
     found = shutil.which(name)
@@ -54,7 +54,7 @@ def _run(cmd: list[str], *, dry_run: bool) -> int:
     if exe is None:
         sys.exit(
             f"error: `{cmd[0]}` not found on PATH or in the venv bin.\n"
-            f"       Run `stampbot doctor`, or {INSTALL_HINT}."
+            f"       Run `xylobot doctor`, or {INSTALL_HINT}."
         )
     print(f"\n$ {printable}\n", flush=True)
     try:
@@ -76,7 +76,7 @@ def cmd_doctor(cfg, args):
         print(f"  {mark} {label}" + (f"  — {hint}" if (not passed and hint) else ""))
         ok = ok and passed
 
-    print("StampBot environment check\n")
+    print("XyloBot environment check\n")
     for tool in ["lerobot-find-port", "lerobot-calibrate", "lerobot-teleoperate",
                  "lerobot-record", "lerobot-replay", "lerobot-train"]:
         check(f"`{tool}` available", _bin(tool) is not None, INSTALL_HINT)
@@ -90,14 +90,14 @@ def cmd_doctor(cfg, args):
         state = state_file.read_text().strip() if state_file.exists() else "missing"
         check(f"CAN interface '{f_port}' up (state: {state})",
               state not in ("down", "missing"),
-              "run `stampbot can-up` (needs the USB-CAN adapter plugged in)")
+              "run `xylobot can-up` (needs the USB-CAN adapter plugged in)")
     else:
         check(f"follower port exists ({f_port})", Path(f_port).exists(),
-              "edit configs/stampbot(.local).yaml; run `stampbot find-ports`")
+              "edit configs/stampbot(.local).yaml; run `xylobot find-ports`")
 
     l_port = Path(cfg["leader"]["port"])
     check(f"leader port exists ({l_port})", l_port.exists(),
-          "edit configs/stampbot(.local).yaml; run `stampbot find-ports`")
+          "edit configs/stampbot(.local).yaml; run `xylobot find-ports`")
 
     # RS persists calibration to JSON, keyed by id — check it's been done once.
     cal = Path.home() / ".cache/huggingface/lerobot/calibration"
@@ -105,9 +105,9 @@ def cmd_doctor(cfg, args):
     f_cal = (cal / "robots").exists() and any((cal / "robots").rglob(f"{f_id}.json"))
     l_cal = (cal / "teleoperators").exists() and any((cal / "teleoperators").rglob(f"{l_id}.json"))
     check(f"follower calibrated ({f_id})", f_cal,
-          "run `stampbot calibrate follower` (one-time on RS)")
+          "run `xylobot calibrate follower` (one-time on RS)")
     check(f"leader calibrated ({l_id})", l_cal,
-          "run `stampbot calibrate leader` (one-time on RS)")
+          "run `xylobot calibrate leader` (one-time on RS)")
 
     rid = cfg["dataset"]["repo_id"]
     check(f"dataset.repo_id set ({rid})", "CHANGE_ME" not in rid,
@@ -284,8 +284,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="print the LeRobot command instead of running it")
 
     p = argparse.ArgumentParser(
-        prog="stampbot", parents=[common],
-        description="Config-driven toolkit for the StampBot reBot B601-RS arm.",
+        prog="xylobot", parents=[common],
+        description="Config-driven toolkit for the XyloBot reBot B601-RS arm.",
         formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     sub = p.add_subparsers(dest="command", required=True)
 

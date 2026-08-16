@@ -18,7 +18,7 @@ dependencies = [
 # `rebot_lerobot` LeRobot install PLUS the `lerobot_robot_seeed_b601` plugin
 # (which registers the `seeed_b601_rs_follower` type) on Python 3.10 — see
 # docs/hardware-bringup.md and the Seeed RS wiki. So we do NOT declare LeRobot as
-# a dependency here (that would pull the wrong build). Install StampBot INTO the
+# a dependency here (that would pull the wrong build). Install XyloBot INTO the
 # existing rebot_lerobot venv with `pip install -e .`; it only adds this CLI.
 [project.optional-dependencies]
 dev = [

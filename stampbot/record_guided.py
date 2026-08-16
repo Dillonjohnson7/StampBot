@@ -1,4 +1,4 @@
-"""Guided, interactive recorder for StampBot.
+"""Guided, interactive recorder for XyloBot.
 
 A step-by-step terminal flow — SET UP → ENTER to start → ENTER to stop →
 keep/redo → RESET — that is much easier to run than the bare `lerobot-record`
@@ -13,7 +13,7 @@ Nothing here is SO101-specific — it works for the reBot RS as-is.
 Built on the SAME primitives LeRobot's own `record()` uses (verified against
 current source): `record_loop`, `VideoEncodingManager`, `make_default_processors`,
 `LeRobotDataset.create`. If the API differs on your version it fails with a clear
-message — fall back to the plain CLI: `stampbot record --raw`.
+message — fall back to the plain CLI: `xylobot record --raw`.
 """
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ if _missing:  # pragma: no cover - only meaningful with LeRobot installed
         f"  missing: {', '.join(_missing)}\n"
         "Ensure LeRobot + the RS plugins are installed in this venv\n"
         "(see docs/hardware-bringup.md), or use the plain CLI:\n"
-        "  stampbot record --raw"
+        "  xylobot record --raw"
     )
 
 # Optional / version-varying pieces — guarded (older builds run without them).
@@ -90,7 +90,7 @@ def _build_cameras(cams_cfg: dict) -> dict:
     for name, c in (cams_cfg or {}).items():
         if c.get("type", "opencv") != "opencv":
             raise SystemExit(f"camera '{name}': only 'opencv' is wired in the guided "
-                             f"recorder; use `stampbot record --raw` for other types.")
+                             f"recorder; use `xylobot record --raw` for other types.")
         kwargs = dict(index_or_path=c["index_or_path"],
                       width=c["width"], height=c["height"], fps=c["fps"])
         if c.get("fourcc"):  # e.g. MJPG — needed for 640x480@30 on the RS USB cams
@@ -204,7 +204,7 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
         robot.connect()
         teleop.connect()
         if display:
-            init_visualization("rerun", session_name="stampbot-record")
+            init_visualization("rerun", session_name="xylobot-record")
 
         # Match canonical record(): batch video encoding across the session.
         enc = VideoEncodingManager(dataset) if VideoEncodingManager else contextlib.nullcontext()

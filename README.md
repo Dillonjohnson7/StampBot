@@ -28,7 +28,7 @@ xb calibrate all                        # one-time on RS
 xb teleop                               # confirm the follower tracks the leader
 xb record                               # collect demos (guided)
 xb train
-xb eval --policy-path outputs/train/act_stamping/checkpoints/last/pretrained_model
+xb eval --policy-path outputs/train/act_xylobot/checkpoints/last/pretrained_model
 ```
 
 **First time on RS hardware, do [hardware bring-up](docs/hardware-bringup.md) first** —
