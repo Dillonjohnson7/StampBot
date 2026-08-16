@@ -21,6 +21,9 @@ env/
 .vscode/
 .idea/
 
+# Local config overrides (ports, repo ids) — never commit
+configs/stampbot.local.yaml
+
 # Secrets
 .env
 wandb/

@@ -1,0 +1,75 @@
+# ============================================================================
+# StampBot central config — edit this ONE file, every tool reads from it.
+#
+# Copy to configs/stampbot.local.yaml to override without touching git:
+#     cp configs/stampbot.yaml configs/stampbot.local.yaml
+# The CLI auto-loads stampbot.local.yaml if present.
+#
+# Defaults below match the reBot Arm B601-RS (Robstride) per the Seeed wiki:
+#   https://wiki.seeedstudio.com/rebot_arm_b601_rs_lerobot/
+# ============================================================================
+
+# --- Follower arm: reBot Arm B601-RS (the arm that physically stamps) --------
+# The RS follower talks over SocketCAN, so its "port" is a CAN interface
+# (can0), NOT a /dev/tty* serial device. Bring it up first:
+#     sudo ip link set can0 up type can bitrate 1000000     (or: stampbot can-up)
+follower:
+  type: seeed_b601_rs_follower
+  port: can0                # CAN interface (not a serial path)
+  id: follower1
+  can_adapter: socketcan    # RS uses socketcan (DM used damiao)
+
+# --- Leader arm: Star Arm / reBot Arm 102 (move by hand to demonstrate) ------
+leader:
+  type: rebot_arm_102_leader
+  port: /dev/ttyUSB0        # <-- CHANGE ME if different (run `stampbot find-ports`)
+  id: rebot_arm_102_leader
+  # If a joint moves backwards during teleop, flip its sign here (else leave null):
+  # joint_directions: {"shoulder_pan": -1, "wrist_roll": -1, "gripper": -6}
+  joint_directions: null
+
+# --- Cameras (observation space for the policy) -----------------------------
+# Remove a camera you don't have. `index_or_path` is the OpenCV device index
+# (0,1,2...) or a /dev/video* path. Wrist + top is the recommended setup.
+cameras:
+  wrist:
+    type: opencv
+    index_or_path: 0        # <-- CHANGE ME
+    width: 640
+    height: 480
+    fps: 30
+  top:
+    type: opencv
+    index_or_path: 1        # <-- CHANGE ME
+    width: 640
+    height: 480
+    fps: 30
+
+# --- Dataset (recorded demonstrations) --------------------------------------
+dataset:
+  repo_id: CHANGE_ME/stampbot_stamping   # <HF_USER>/<name>
+  single_task: "Pick up the stamp, press it on the ink pad, then stamp the paper."
+  fps: 30
+  num_episodes: 50          # target number of demos
+  episode_time_s: 30        # max seconds per episode
+  reset_time_s: 10          # pause between episodes to reset the scene
+  push_to_hub: true         # upload to Hugging Face Hub after recording
+  root: null                # local dir override (null = ~/.cache/huggingface/lerobot)
+
+# --- Policy / training ------------------------------------------------------
+policy:
+  type: act                 # act (prototype) | pi0 (VLA finetune)
+  device: cuda              # cuda | cpu | mps
+  batch_size: 8
+  steps: 100000
+  output_dir: outputs/train/act_stamping
+  job_name: act_stamping
+  wandb: false
+
+# --- CAN interface (RS follower uses SocketCAN) -----------------------------
+can:
+  interface: can0
+  bitrate: 1000000          # 1 Mbit/s
+
+# --- Misc -------------------------------------------------------------------
+hf_user: CHANGE_ME          # your Hugging Face username (for repo ids)

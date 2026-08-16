@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stampbot"
+version = "0.1.0"
+description = "Imitation-learning toolkit for a reBot Arm B601 hand-stamping robot (LeRobot ACT/pi0)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Dillon Johnson" }]
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+# LeRobot + the reBot arm drivers are the heavy runtime deps. They are pulled
+# in via the extra so `pip install -e .` stays light for tooling-only use.
+#
+#   pip install -e ".[robot]"    # LeRobot + reBot B601 drivers (recommended)
+#
+[project.optional-dependencies]
+robot = [
+    # Installs LeRobot with the reBot extra (motorbridge CAN + smart-servo).
+    # Pinned loosely; see docs/hardware-bringup.md for the exact known-good tag.
+    "lerobot[rebot] @ git+https://github.com/huggingface/lerobot.git",
+]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+stampbot = "stampbot.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["stampbot*"]
+
+[tool.ruff]
+line-length = 100

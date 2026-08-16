@@ -1,60 +1,110 @@
 # StampBot 🤖✋
 
-A hand-stamping robot that learns to pick up a stamp, ink it, and press it onto paper — trained by imitation learning from human teleoperation demonstrations.
+A hand-stamping robot that learns to pick up a stamp, ink it, and press it onto
+paper — trained by imitation learning from human teleoperation demonstrations.
+
+Clone it, edit one config file, and you have a full data-collection → training →
+deployment toolkit ready to go.
 
 ## Stack
 
 | Component | Choice |
 |---|---|
-| **Robot arm (follower)** | [reBot Arm B601-RS](https://wiki.seeedstudio.com/rebot_b601_rs_getting_started/) — 6+1 DoF, Robstride motors, 2.5 kg payload, ±0.1 mm repeatability |
-| **Teleop (leader)** | Leader-follower — Star Arm 102 leader arm |
-| **Framework** | [LeRobot](https://github.com/huggingface/lerobot) (Hugging Face) |
-| **Policy** | ACT (Action Chunking Transformer) for prototyping → π0.5 (VLA) finetune |
-| **Cameras** | TBD (wrist + overhead recommended) |
+| **Follower arm** | [reBot Arm B601-RS](https://wiki.seeedstudio.com/rebot_arm_b601_rs_lerobot/) — 6+1 DoF, Robstride motors, SocketCAN, 2.5 kg payload, ±0.1 mm |
+| **Leader arm** | reBot Arm 102 (Star Arm 102) — leader-follower teleop |
+| **Framework** | [LeRobot](https://github.com/huggingface/lerobot) |
+| **Policy** | ACT (prototype) → π0 / π0.5 (VLA finetune) |
 
-## Why this design
+## Quickstart
 
-- **ACT first, π0.5 later.** ACT trains from scratch on a single consumer GPU with as few as ~50 demos — ideal for nailing the data pipeline end-to-end. Once teleop → record → train → deploy is proven, the same LeRobot dataset can be reused to finetune π0.5 for language conditioning and generalization.
-- **Leader-follower teleop** gives clean joint-space demonstrations, which is exactly what ACT consumes.
+```bash
+git clone https://github.com/Dillonjohnson7/StampBot.git
+cd StampBot
+
+# 1. Install (venv + toolkit + LeRobot + reBot drivers)
+./setup.sh
+
+# 2. Edit YOUR ports / repo_id / cameras
+#    (setup.sh made configs/stampbot.local.yaml for you)
+$EDITOR configs/stampbot.local.yaml
+
+# 3. Bring up hardware and verify
+source .venv/bin/activate
+stampbot can-up            # RS follower uses SocketCAN (can0)
+stampbot doctor            # everything should be ✅
+
+# 4. Calibrate → teleop → record
+stampbot calibrate all
+stampbot teleop --display  # confirm the follower tracks the leader
+stampbot record            # collect demonstrations
+
+# 5. Train and deploy
+stampbot train
+stampbot eval --policy-path outputs/train/act_stamping/checkpoints/last/pretrained_model
+```
+
+> Prefer `make`? `make help` lists equivalent targets.
+> Want to see a command without running it? Prefix any command with `--dry-run`.
+
+## The `stampbot` CLI
+
+Every tool reads from `configs/stampbot.yaml` (overridden by your private
+`stampbot.local.yaml`), so you configure ports **once** and everything works.
+
+| Command | What it does |
+|---|---|
+| `stampbot doctor` | Check env: CLIs installed, CAN up, ports present, GPU |
+| `stampbot find-ports` | Discover USB serial ports (`lerobot-find-port`) |
+| `stampbot can-up` | Bring up the SocketCAN interface for the RS follower |
+| `stampbot calibrate {all,follower,leader}` | Re-zero the arm(s) |
+| `stampbot teleop [--display]` | Drive follower with the leader |
+| `stampbot record [-n N] [--resume]` | Record demonstrations |
+| `stampbot replay --episode N` | Replay a recorded episode on the arm |
+| `stampbot visualize --episode N` | View a recorded episode |
+| `stampbot train [--policy act\|pi0]` | Train the policy |
+| `stampbot eval --policy-path P` | Run a trained policy on the real arm |
+
+Global flags: `--config PATH`, `--dry-run`.
 
 ## The task
 
 A single, repeatable manipulation sequence:
+**grasp the stamp → press on the ink pad → move to the paper → press → reset.**
 
-1. Locate and grasp the stamp
-2. Press the stamp onto the ink pad
-3. Move to the paper
-4. Press to stamp
-5. Return the stamp / reset
+## Why ACT first, π0.5 later
 
-## Roadmap
+ACT trains from scratch on a single consumer GPU with as few as ~50 demos —
+perfect for proving the teleop → record → train → deploy loop end to end. The
+same LeRobot dataset then feeds a π0/π0.5 finetune for language conditioning and
+generalization, so nothing is thrown away. Switch with `stampbot train --policy pi0`.
 
-- [ ] **Hardware bring-up** — assemble B601-RS follower + Star Arm 102 leader, wire 48V/15A PSU, calibrate motors
-- [ ] **LeRobot setup** — install, configure the arm driver, verify teleop loop
-- [ ] **Camera setup** — mount + register wrist and overhead cameras
-- [ ] **Data collection** — record 50+ stamping demonstrations
-- [ ] **Train ACT** — train and evaluate the ACT policy
-- [ ] **Deploy + evaluate** — closed-loop rollout on the real arm, measure success rate
-- [ ] **π0.5 finetune** — reuse dataset to finetune π0.5, compare
+## Docs
+
+- [Hardware bring-up](docs/hardware-bringup.md) — power, CAN, ports, adapters
+- [Calibration](docs/calibration.md) — zeroing, reversed joints
+- [Data collection SOP](docs/data-collection.md) — how to record good demos
+- [Troubleshooting](docs/troubleshooting.md) — CAN, cameras, training
 
 ## Repository layout
 
 ```
 StampBot/
-├── configs/        # LeRobot + policy configs (arm, cameras, training)
-├── data/           # recorded datasets (gitignored; pushed to HF Hub)
-├── scripts/        # record / train / eval / deploy helpers
-├── notebooks/      # analysis + visualization
-└── docs/           # hardware bring-up notes, calibration, wiring
+├── stampbot/         # the `stampbot` CLI (config-driven LeRobot wrappers)
+├── configs/          # stampbot.yaml — the one file you edit
+├── docs/             # bring-up, calibration, data-collection, troubleshooting
+├── scripts/          # extra helper scripts
+├── notebooks/        # dataset analysis / visualization
+├── data/             # recorded datasets (gitignored; pushed to HF Hub)
+├── setup.sh          # one-shot installer
+└── Makefile          # convenience targets
 ```
 
 ## References
 
-- [reBot Arm B601-RS Quick Start](https://wiki.seeedstudio.com/rebot_b601_rs_getting_started/)
-- [reBot B601 in LeRobot](https://huggingface.co/docs/lerobot/en/rebot_b601)
-- [LeRobot ACT policy docs](https://deepwiki.com/huggingface/lerobot/4.2-act-policy)
+- [reBot B601-RS in LeRobot](https://wiki.seeedstudio.com/rebot_arm_b601_rs_lerobot/)
+- [LeRobot ACT policy](https://deepwiki.com/huggingface/lerobot/4.2-act-policy)
 - [reBot-DevArm (open hardware)](https://github.com/Seeed-Projects/reBot-DevArm)
 
 ## License
 
-TBD
+Apache-2.0 (software). Hardware is CERN-OHL-W 2.0 upstream. See [LICENSE](LICENSE).
