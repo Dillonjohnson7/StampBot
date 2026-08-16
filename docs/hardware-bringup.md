@@ -44,7 +44,7 @@ sudo ip link set can0 down
 sudo ip link set can0 type can bitrate 1000000
 sudo ip link set can0 up
 # convenience wrapper that does exactly this:
-stampbot can-up
+xylobot can-up
 ```
 
 Verify:
@@ -81,7 +81,7 @@ The B601-RS does **not** run plain upstream LeRobot. The reference environment i
 - on **Python 3.10**.
 
 Install both per the [Seeed RS wiki](https://wiki.seeedstudio.com/rebot_arm_b601_rs_lerobot/).
-Then install this toolkit **into that same venv** so `stampbot` can drive it:
+Then install this toolkit **into that same venv** so `xylobot` can drive it:
 
 ```bash
 # with the rebot_lerobot .venv active (uv-managed):
@@ -92,7 +92,7 @@ python -c "import lerobot; print('ok')"
 ## 5. Find the leader serial port
 
 ```bash
-stampbot find-ports      # wraps lerobot-find-port
+xylobot find-ports      # wraps lerobot-find-port
 ```
 
 Linux: if the port is held, `sudo apt remove brltty` and
@@ -110,7 +110,7 @@ leader:   { port: /dev/ttyUSB0 } # whatever find-ports reported
 ## 7. Sanity check
 
 ```bash
-stampbot doctor
+xylobot doctor
 ```
 
 All checks ✅ before calibrating. Then continue to

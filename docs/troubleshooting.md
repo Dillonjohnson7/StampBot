@@ -14,7 +14,7 @@
 
 ## Leader / serial
 
-- **Leader port not found** → run `stampbot find-ports`. On Linux:
+- **Leader port not found** → run `xylobot find-ports`. On Linux:
   `sudo apt remove brltty` and `sudo chmod 666 /dev/ttyUSB*`.
 - **A joint moves backwards** → flip its sign in `leader.joint_directions`
   (see [calibration.md](./calibration.md)).
@@ -30,12 +30,12 @@
 
 - **CUDA out of memory** → lower `policy.batch_size` in the config.
 - **No GPU** → training ACT on CPU is impractically slow. Use a CUDA box (or a
-  cloud GPU) and point `stampbot train` at the dataset on the Hub.
+  cloud GPU) and point `xylobot train` at the dataset on the Hub.
 - **Policy does nothing sensible** → almost always data, not hyperparameters.
-  Re-watch demos with `stampbot visualize`; look for inconsistent resets, teleop
+  Re-watch demos with `xylobot visualize`; look for inconsistent resets, teleop
   jitter, or a task the cameras can't actually observe.
 
 ## General
 
 - Add `--dry-run` to any command to see the exact LeRobot invocation.
-- `stampbot doctor` is the fastest triage — run it first.
+- `xylobot doctor` is the fastest triage — run it first.

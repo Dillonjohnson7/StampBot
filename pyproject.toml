@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "stampbot"
 version = "0.1.0"
-description = "Imitation-learning toolkit for a reBot Arm B601 hand-stamping robot (LeRobot ACT/pi0)"
+description = "XyloBot — imitation-learning toolkit for a reBot Arm B601-RS xylophone-playing robot (LeRobot ACT/pi0)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -27,6 +27,9 @@ dev = [
 ]
 
 [project.scripts]
+xylobot = "stampbot.cli:main"
+xb = "stampbot.cli:main"
+# legacy aliases kept so existing installs/sessions don't break
 stampbot = "stampbot.cli:main"
 sb = "stampbot.cli:main"
 

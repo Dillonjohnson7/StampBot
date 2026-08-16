@@ -1,4 +1,4 @@
-# Contributing to StampBot
+# Contributing to XyloBot
 
 ## Setup
 

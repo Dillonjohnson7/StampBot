@@ -1,63 +1,60 @@
-# Data collection SOP — recording hand-stamping demonstrations
+# Data collection SOP — recording xylophone demonstrations
 
-The task: the stamp is built into the end-effector, and the arm must **find a
-person's hand and gently press the stamp onto the back of it**. Good demos are
-the whole game for imitation learning. This is the SOP for a clean dataset.
+The task: **pick up the mallet and strike the xylophone to play a note**. Good
+demos are the whole game for imitation learning. This is the SOP for a clean
+dataset.
 
 ## Before you record
 
 1. Complete [hardware bring-up](./hardware-bringup.md) — PCAN driver, CAN up,
    MotorBridge motor init (all 7 joints online).
-2. `stampbot can-up` then `stampbot doctor` — everything ✅.
-3. `stampbot calibrate all` — one-time on RS (see [calibration.md](./calibration.md)).
-4. `stampbot teleop --display` — confirm the follower tracks the leader and the
-   camera(s) clearly see the hand region. Fix any reversed joints.
+2. `xylobot can-up` then `xylobot doctor` — everything ✅.
+3. `xylobot calibrate all` — one-time on RS (see [calibration.md](./calibration.md)).
+4. `xylobot teleop --display` — confirm the follower tracks the leader and the
+   camera(s) clearly see the mallet and the xylophone bars. Fix any reversed joints.
 
-## Setup: two people
+## Setup: one operator
 
-Collection is teleoperated, so a human is always in the loop:
+Collection is teleoperated, so a human is always in the loop. A **single
+operator** drives the **leader** arm; the follower (holding/grabbing the mallet)
+mirrors it live. No helper is needed — the scene is just a xylophone and a
+mallet, with nothing to present.
 
-- **Operator** drives the **leader** arm; the follower (with the stamp) mirrors
-  it live.
-- **Helper** presents their **hand** under the follower and **moves it to a new
-  position each demo** (the guided recorder prints a cycling position hint).
-
-Because the operator is in direct control the whole time, recording on a real
-hand is fine — just work at low speed and demonstrate a **light, brief contact**
-(soft press, then retract). The policy imitates your force profile, so gentle
-demos → a gentle policy.
+Work at low speed and demonstrate a **clean, gentle strike** — enough to sound
+the bar, not enough to damage the mallet or the xylophone. The policy imitates
+your motion, so smooth, controlled demos → a smooth, controlled policy.
 
 ## Safety
 
 - Keep speeds low; keep an **e-stop / kill** within reach and the 48V supply
   switch accessible.
-- The autonomous step is where caution matters: during `stampbot eval`, run the
-  **base** (non-recording) strategy first at short `--duration` against a
-  **stand-in** (foam/mannequin) before any real hand.
+- **Keep clear of the moving arm** — the only hazard is the arm itself, so stay
+  out of its swing while it's live.
+- Strike **gently** so you don't damage the mallet or the xylophone bars.
 
-## Scene setup (keep it consistent, vary the hand)
+## Scene setup (keep it consistent, vary the target note)
 
-- Mount the camera(s) so the **hand region is always in view**: a wrist camera
-  sees the approach/contact; a second (front/overhead) camera sees the whole
-  workspace and the hand.
-- Consistent, diffuse lighting; avoid moving shadows and glare on skin.
-- **Vary what you want to generalize over:** hand position within the reachable
-  zone, hand orientation, left/right hand, different people/skin tones, sleeve
-  vs. bare wrist. Variation you record is variation the policy can handle;
-  variation you *don't* record becomes a failure mode.
-- Keep the **contact target consistent** (e.g. back of the hand) so the label is
-  unambiguous.
+- Mount the camera(s) so the **mallet and bars are always in view**: a wrist
+  camera sees the grasp and the strike; a second (front/overhead) camera sees
+  the whole workspace, the mallet, and the xylophone.
+- Consistent, diffuse lighting; avoid moving shadows and glare on the bars.
+- **Vary what you want to generalize over:** target note/bar (low / middle /
+  high), mallet starting position, and xylophone placement within the reachable
+  zone. Variation you record is variation the policy can handle; variation you
+  *don't* record becomes a failure mode.
+- Keep the **strike target consistent** (the center of the chosen bar) so the
+  label is unambiguous.
 
 ## Record (guided flow)
 
-`stampbot record` runs a guided, step-by-step recorder — you press ENTER to
+`xylobot record` runs a guided, step-by-step recorder — you press ENTER to
 start each demo, ENTER again to stop (so a demo is exactly as long as it needs
 to be), then keep or redo it:
 
 ```bash
-stampbot record            # target = num_episodes from config
-stampbot record -n 10      # just 10 demos this run
-stampbot record --display  # also show the camera feeds (rerun)
+xylobot record            # target = num_episodes from config
+xylobot record -n 10      # just 10 demos this run
+xylobot record --display  # also show the camera feeds (rerun)
 ```
 
 Each episode:
@@ -65,49 +62,49 @@ Each episode:
 ```
 EPISODE 12   (demo 3 of 10 this run · 11 saved total)
 STEP 1 · SET UP
- • Start state: hand at RIGHT, back of hand up  (cycles every demo)
+ • Start state: target = MIDDLE bar, mallet at RIGHT  (cycles every demo)
  • Move the LEADER arm to your start pose (follower mirrors live).
- • Have the helper present the hand; drive the task deliberately.
+ • Drive the task deliberately: grab the mallet, strike the bar.
  >> Press ENTER to START recording (q = finish session):
  🔴 RECORDING… perform the task now.
  >> Press ENTER to STOP.
  Captured ~430 frames (14.3s).
 STEP 3 · KEEP THIS DEMO?  [ENTER]=keep · r=redo · q=save & quit:
  ✓ Saved. Good episodes total: 12
-STEP 4 · RESET — reset the scene / hand position for the next demo.
+STEP 4 · RESET — reset the scene / mallet position for the next demo.
 ```
 
 The start-state hints come from `dataset.start_states` in the config — edit them
-to match how your helper should place the hand. On finish, the dataset is
-finalized and (if `push_to_hub: true`) uploaded.
+to match the target notes and mallet placements you want to cover. On finish, the
+dataset is finalized and (if `push_to_hub: true`) uploaded.
 
-**Prefer the plain LeRobot loop?** `stampbot record --raw` runs `lerobot-record`
+**Prefer the plain LeRobot loop?** `xylobot record --raw` runs `lerobot-record`
 instead (supports `--resume`, which needs `dataset.root` set; on resume
 `num_episodes` means *additional* episodes, not the new total).
 
-## What makes a good hand-stamp demo
+## What makes a good strike demo
 
-- **One clean intent:** locate hand → approach → gentle press → brief hold →
+- **One clean intent:** locate mallet → grasp → move to the target bar → strike →
   retract.
-- **Smooth, moderate speed.** Jerky teleop is hard to imitate and unsafe near a hand.
-- **Show the contact clearly** on camera — the press is the information-rich
-  moment. Approach from a consistent direction.
+- **Smooth, moderate speed.** Jerky teleop is hard to imitate.
+- **Show the strike clearly** on camera — the moment the mallet meets the bar is
+  the information-rich one. Approach each bar from a consistent direction.
 - **Recover naturally** from a near-miss (re-approach) instead of stopping —
   recoveries are valuable training signal.
-- **Reset identically** during the `reset_time_s` window: move the hand to a new
+- **Reset identically** during the `reset_time_s` window: mallet to a new start
   position, arm back to a home pose.
 
 ## How many?
 
 - ACT gives a working policy from **~50** solid demos. Start there; aim for
-  spread across hand positions (e.g. ~10 per zone).
+  spread across the target bars (e.g. ~10 per note).
 - Quality and diversity beat raw count. 50 clean, varied demos > 150 sloppy ones.
 
 ## Verify the dataset
 
 ```bash
-stampbot visualize --episode 0     # view frames + action traces
-stampbot replay --episode 0        # replay on the arm — use a STAND-IN hand, clear the area
+xylobot visualize --episode 0     # view frames + action traces
+xylobot replay --episode 0        # replay on the arm — clear the area, keep clear of the swing
 ```
 
 Datasets push to the Hugging Face Hub automatically when `push_to_hub: true`.

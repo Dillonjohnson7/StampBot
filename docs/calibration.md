@@ -13,7 +13,7 @@ won't work until the motors are up.
 ## Run it (follower first, then leader)
 
 ```bash
-stampbot calibrate all
+xylobot calibrate all
 ```
 
 Which runs:
@@ -33,8 +33,8 @@ lerobot-calibrate \
 When prompted: **move the arm to its documented zero/home pose (gripper fully
 closed), hold it still, and press Enter.** That's the whole calibration.
 
-Do one at a time with `stampbot calibrate follower` / `stampbot calibrate leader`.
-Preview without running: `stampbot calibrate all --dry-run`.
+Do one at a time with `xylobot calibrate follower` / `xylobot calibrate leader`.
+Preview without running: `xylobot calibrate all --dry-run`.
 
 ## Reversed joints
 
