@@ -41,6 +41,16 @@ except Exception as e:  # pragma: no cover - only meaningful with LeRobot instal
         "  stampbot record --raw"
     ) from e
 
+# Third-party device plugins (e.g. the RS follower `lerobot_robot_seeed_b601`
+# and leader `lerobot_teleoperator_rebot_arm_102`) register their types only when
+# imported. LeRobot's CLIs call this discovery hook at startup; the Python API
+# does NOT, so we must call it ourselves or get_choice_class won't find the RS
+# types. Verified against LeRobot 0.4.4 on the reBot RS.
+try:
+    from lerobot.utils.import_utils import register_third_party_plugins
+except Exception:  # pragma: no cover
+    register_third_party_plugins = None
+
 # Optional pieces — present in current LeRobot, guarded so an older build still
 # runs (just without batched video encoding / the rerun viewer).
 try:
@@ -135,6 +145,10 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
     if display and init_visualization is None:
         print("(note: rerun viewer unavailable in this LeRobot build — recording without display)")
         display = False
+
+    # Register third-party device plugins so the RS follower/leader types resolve.
+    if register_third_party_plugins is not None:
+        register_third_party_plugins()
 
     f, l = cfg["follower"], cfg["leader"]
     cams = _build_cameras(cfg.get("cameras", {}))

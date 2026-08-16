@@ -14,7 +14,8 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 calls = {"save": 0, "clear": 0, "finalize": 0, "push": 0, "connect": 0,
-         "disconnect": 0, "record_loop": 0, "enc_enter": 0, "enc_exit": 0}
+         "disconnect": 0, "record_loop": 0, "enc_enter": 0, "enc_exit": 0,
+         "register": 0}
 
 
 @dataclasses.dataclass
@@ -96,6 +97,8 @@ _mod("lerobot.datasets")
 _mod("lerobot.datasets.lerobot_dataset", LeRobotDataset=FakeDataset)
 _mod("lerobot.utils")
 _mod("lerobot.utils.feature_utils", hw_to_dataset_features=lambda hw, p: {p: hw})
+def _register(): calls["register"] += 1
+_mod("lerobot.utils.import_utils", register_third_party_plugins=_register)
 _mod("lerobot.scripts")
 _mod("lerobot.scripts.lerobot_record", record_loop=fake_record_loop, VideoEncodingManager=FakeEnc)
 _mod("lerobot.processor", make_default_processors=lambda: (1, 2, 3))
@@ -143,6 +146,7 @@ def test_two_demos_with_one_redo():
     assert calls["finalize"] == 1
     assert calls["push"] == 1          # saved>0 and push_to_hub true
     assert calls["enc_enter"] == 1 and calls["enc_exit"] == 1
+    assert calls["register"] == 1      # third-party RS plugin types registered
 
 
 def test_quit_before_any_demo():
