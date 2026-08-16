@@ -23,12 +23,12 @@ git clone https://github.com/Dillonjohnson7/StampBot.git && cd StampBot
 ./setup.sh                              # pip install -e . (into the active venv)
 $EDITOR configs/stampbot.local.yaml     # your ports, repo_id, cameras
 
-stampbot can-up && stampbot doctor      # bring up CAN, check everything is ✅
-stampbot calibrate all                  # one-time on RS
-stampbot teleop --display               # confirm the follower tracks the leader
-stampbot record                         # collect demos
-stampbot train
-stampbot eval --policy-path outputs/train/act_stamping/checkpoints/last/pretrained_model
+sb can-up && sb doctor                  # bring up CAN, check everything is ✅
+sb calibrate all                        # one-time on RS
+sb teleop                               # confirm the follower tracks the leader
+sb record                               # collect demos (guided)
+sb train
+sb eval --policy-path outputs/train/act_stamping/checkpoints/last/pretrained_model
 ```
 
 **First time on RS hardware, do [hardware bring-up](docs/hardware-bringup.md) first** —
@@ -36,22 +36,23 @@ PCAN driver, CAN interface, and the MotorBridge motor init are prerequisites.
 
 ## Commands
 
-Every command reads `configs/stampbot.yaml` (your `stampbot.local.yaml` overrides
-it), so you set ports once. Add `--dry-run` to any command to print the exact
-LeRobot call instead of running it; `make help` lists `make` equivalents.
+Use `sb` (short alias for `stampbot`). Every command reads `configs/stampbot.yaml`
+(your `stampbot.local.yaml` overrides it), so you set ports once — e.g. the long
+`lerobot-teleoperate …` command is just **`sb teleop`**. Add `--dry-run` to any
+command to print the exact LeRobot call; `make help` lists `make` equivalents.
 
 | Command | Does |
 |---|---|
-| `stampbot doctor` | Check CLIs, CAN, ports, calibration, GPU |
-| `stampbot find-ports` | Find the leader's USB port |
-| `stampbot can-up` | Bring up SocketCAN (`can0`) for the RS follower |
-| `stampbot calibrate {all,follower,leader}` | Home-pose calibration (one-time on RS) |
-| `stampbot teleop [--display]` | Drive the follower with the leader |
-| `stampbot record [-n N] [--display]` | Record demos — **guided** flow (`--raw` for plain CLI) |
-| `stampbot replay --episode N` | Replay an episode on the arm |
-| `stampbot visualize --episode N` | View an episode |
-| `stampbot train [--policy act\|pi0\|pi05]` | Train the policy |
-| `stampbot eval --policy-path P [--record]` | Run a trained policy on the arm |
+| `sb doctor` | Check CLIs, CAN, ports, calibration, GPU |
+| `sb find-ports` | Find the leader's USB port |
+| `sb can-up` | Bring up SocketCAN (`can0`) for the RS follower |
+| `sb calibrate {all,follower,leader}` | Home-pose calibration (one-time on RS) |
+| `sb teleop` | Drive the follower with the leader (cameras on; `--no-display` for motion only) |
+| `sb record [-n N] [--display]` | Record demos — **guided** flow (`--raw` for plain CLI) |
+| `sb replay --episode N` | Replay an episode on the arm |
+| `sb visualize --episode N` | View an episode |
+| `sb train [--policy act\|pi0\|pi05]` | Train the policy |
+| `sb eval --policy-path P [--record]` | Run a trained policy on the arm |
 
 ## The task
 

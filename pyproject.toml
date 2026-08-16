@@ -28,6 +28,7 @@ dev = [
 
 [project.scripts]
 stampbot = "stampbot.cli:main"
+sb = "stampbot.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["stampbot*"]

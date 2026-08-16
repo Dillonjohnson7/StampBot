@@ -273,9 +273,10 @@ def build_parser() -> argparse.ArgumentParser:
     c.add_argument("which", choices=["follower", "leader", "all"], default="all", nargs="?")
     c.set_defaults(func=cmd_calibrate)
 
-    t = add("teleop", help="drive the follower with the leader")
-    t.add_argument("--display", action="store_true", help="show camera feeds")
-    t.set_defaults(func=cmd_teleop)
+    t = add("teleop", help="drive the follower with the leader (cameras on)")
+    t.add_argument("--no-display", dest="display", action="store_false",
+                   help="motion only — hide cameras (faster; skips opening them)")
+    t.set_defaults(func=cmd_teleop, display=True)
 
     r = add("record", help="record demonstrations (guided interactive flow)")
     r.add_argument("-n", "--num-episodes", type=int, help="demos to record this run")
