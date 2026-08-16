@@ -19,48 +19,67 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import importlib
 import threading
 import time
 from itertools import cycle
 
-# LeRobot record primitives. Import paths verified against huggingface/lerobot.
-try:
-    from lerobot.robots import make_robot_from_config, RobotConfig
-    from lerobot.teleoperators import make_teleoperator_from_config, TeleoperatorConfig
-    from lerobot.cameras.opencv import OpenCVCameraConfig
-    from lerobot.datasets.lerobot_dataset import LeRobotDataset
-    from lerobot.utils.feature_utils import hw_to_dataset_features
-    from lerobot.scripts.lerobot_record import record_loop
-    from lerobot.processor import make_default_processors
-except Exception as e:  # pragma: no cover - only meaningful with LeRobot installed
+
+def _imp(name, *module_paths):
+    """Return the first `name` importable from the given module paths, else None.
+
+    LeRobot moves symbols between releases (e.g. hw_to_dataset_features lives in
+    lerobot.datasets.utils on 0.4.4 but lerobot.utils.feature_utils on main), so
+    we try each known location instead of pinning one.
+    """
+    for mod in module_paths:
+        try:
+            return getattr(importlib.import_module(mod), name)
+        except Exception:
+            continue
+    return None
+
+
+# Required LeRobot record primitives (with per-version fallbacks).
+make_robot_from_config = _imp("make_robot_from_config", "lerobot.robots")
+RobotConfig = _imp("RobotConfig", "lerobot.robots")
+make_teleoperator_from_config = _imp("make_teleoperator_from_config", "lerobot.teleoperators")
+TeleoperatorConfig = _imp("TeleoperatorConfig", "lerobot.teleoperators")
+OpenCVCameraConfig = _imp("OpenCVCameraConfig", "lerobot.cameras.opencv")
+LeRobotDataset = _imp("LeRobotDataset", "lerobot.datasets.lerobot_dataset", "lerobot.datasets")
+record_loop = _imp("record_loop", "lerobot.scripts.lerobot_record")
+hw_to_dataset_features = _imp("hw_to_dataset_features",
+                              "lerobot.datasets.utils", "lerobot.utils.feature_utils")
+make_default_processors = _imp("make_default_processors",
+                               "lerobot.processor", "lerobot.processor.factory")
+
+_REQUIRED = {
+    "make_robot_from_config": make_robot_from_config, "RobotConfig": RobotConfig,
+    "make_teleoperator_from_config": make_teleoperator_from_config,
+    "TeleoperatorConfig": TeleoperatorConfig, "OpenCVCameraConfig": OpenCVCameraConfig,
+    "LeRobotDataset": LeRobotDataset, "record_loop": record_loop,
+    "hw_to_dataset_features": hw_to_dataset_features,
+    "make_default_processors": make_default_processors,
+}
+_missing = [k for k, v in _REQUIRED.items() if v is None]
+if _missing:  # pragma: no cover - only meaningful with LeRobot installed
     raise SystemExit(
         "Could not import the LeRobot record API for the guided recorder.\n"
-        f"  ({type(e).__name__}: {e})\n"
-        "Ensure LeRobot + the RS plugin (lerobot_robot_seeed_b601) are installed\n"
-        "in this venv (see docs/hardware-bringup.md), or use the plain CLI:\n"
+        f"  missing: {', '.join(_missing)}\n"
+        "Ensure LeRobot + the RS plugins are installed in this venv\n"
+        "(see docs/hardware-bringup.md), or use the plain CLI:\n"
         "  stampbot record --raw"
-    ) from e
+    )
 
-# Third-party device plugins (e.g. the RS follower `lerobot_robot_seeed_b601`
-# and leader `lerobot_teleoperator_rebot_arm_102`) register their types only when
-# imported. LeRobot's CLIs call this discovery hook at startup; the Python API
-# does NOT, so we must call it ourselves or get_choice_class won't find the RS
-# types. Verified against LeRobot 0.4.4 on the reBot RS.
-try:
-    from lerobot.utils.import_utils import register_third_party_plugins
-except Exception:  # pragma: no cover
-    register_third_party_plugins = None
-
-# Optional pieces — present in current LeRobot, guarded so an older build still
-# runs (just without batched video encoding / the rerun viewer).
-try:
-    from lerobot.scripts.lerobot_record import VideoEncodingManager
-except Exception:  # pragma: no cover
-    VideoEncodingManager = None
-try:
-    from lerobot.utils.visualization_utils import init_visualization, shutdown_visualization
-except Exception:  # pragma: no cover
-    init_visualization = shutdown_visualization = None
+# Optional / version-varying pieces — guarded (older builds run without them).
+# Third-party device plugins (RS follower `lerobot_robot_seeed_b601`, leader
+# `lerobot_teleoperator_rebot_arm_102`) register their types only when imported;
+# LeRobot's CLIs call this at startup, the Python API does not — so we must.
+register_third_party_plugins = _imp("register_third_party_plugins", "lerobot.utils.import_utils")
+VideoEncodingManager = _imp("VideoEncodingManager",
+                            "lerobot.datasets.video_utils", "lerobot.scripts.lerobot_record")
+init_visualization = _imp("init_visualization", "lerobot.utils.visualization_utils")
+shutdown_visualization = _imp("shutdown_visualization", "lerobot.utils.visualization_utils")
 
 BAR = "━" * 60
 

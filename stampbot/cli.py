@@ -17,6 +17,7 @@ LeRobot command instead of running it. Add --config PATH for a non-default confi
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import shutil
 import subprocess
@@ -31,18 +32,32 @@ INSTALL_HINT = ("install LeRobot + the RS plugin (lerobot_robot_seeed_b601) per 
 VLA_POLICIES = {"pi0", "pi05", "pi0.5", "smolvla"}
 
 
+def _bin(name: str) -> str | None:
+    """Resolve a command on PATH, or in this interpreter's own bin dir.
+
+    lerobot-* live in the same venv bin as `sb`; when `sb` is launched by full
+    path without activating the venv, that dir isn't on PATH, so check it too.
+    """
+    found = shutil.which(name)
+    if found:
+        return found
+    cand = os.path.join(os.path.dirname(sys.executable), name)
+    return cand if (os.path.isfile(cand) and os.access(cand, os.X_OK)) else None
+
+
 def _run(cmd: list[str], *, dry_run: bool) -> int:
     printable = " ".join(shlex.quote(c) for c in cmd)
     if dry_run:
         print(printable)
         return 0
-    if shutil.which(cmd[0]) is None:
+    exe = _bin(cmd[0])
+    if exe is None:
         sys.exit(
-            f"error: `{cmd[0]}` not found on PATH.\n"
+            f"error: `{cmd[0]}` not found on PATH or in the venv bin.\n"
             f"       Run `stampbot doctor`, or {INSTALL_HINT}."
         )
     print(f"\n$ {printable}\n", flush=True)
-    return subprocess.call(cmd)
+    return subprocess.call([exe] + cmd[1:])
 
 
 # --- commands ---------------------------------------------------------------
@@ -59,7 +74,7 @@ def cmd_doctor(cfg, args):
     print("StampBot environment check\n")
     for tool in ["lerobot-find-port", "lerobot-calibrate", "lerobot-teleoperate",
                  "lerobot-record", "lerobot-replay", "lerobot-rollout", "lerobot-train"]:
-        check(f"`{tool}` on PATH", shutil.which(tool) is not None, INSTALL_HINT)
+        check(f"`{tool}` available", _bin(tool) is not None, INSTALL_HINT)
 
     # Follower on RS is a SocketCAN interface (can0), not a serial path.
     # A CAN link reports operstate "unknown" (not "up") when actually up, so
