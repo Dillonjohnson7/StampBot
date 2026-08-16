@@ -14,17 +14,13 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
-# LeRobot + the reBot arm drivers are the heavy runtime deps. They are pulled
-# in via the extra so `pip install -e .` stays light for tooling-only use.
-#
-#   pip install -e ".[robot]"    # LeRobot + reBot B601 drivers (recommended)
-#
+# NOTE: LeRobot for the B601-RS is NOT plain upstream. The reference setup is a
+# `rebot_lerobot` LeRobot install PLUS the `lerobot_robot_seeed_b601` plugin
+# (which registers the `seeed_b601_rs_follower` type) on Python 3.10 — see
+# docs/hardware-bringup.md and the Seeed RS wiki. So we do NOT declare LeRobot as
+# a dependency here (that would pull the wrong build). Install StampBot INTO the
+# existing rebot_lerobot venv with `pip install -e .`; it only adds this CLI.
 [project.optional-dependencies]
-robot = [
-    # Installs LeRobot with the reBot extra (motorbridge CAN + smart-servo).
-    # Pinned loosely; see docs/hardware-bringup.md for the exact known-good tag.
-    "lerobot[rebot] @ git+https://github.com/huggingface/lerobot.git",
-]
 dev = [
     "pytest>=7.0",
     "ruff>=0.4",

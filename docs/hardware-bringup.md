@@ -59,7 +59,8 @@ candump can0                   # (can-utils) shows traffic when a motor moves
 Before LeRobot can talk to the arm, initialize the motors with MotorBridge
 (model **`rebot-arm-robstride`**):
 
-1. Python **3.12** env (Miniforge recommended), then `pip install motorbridge`.
+1. Python **3.10** env (the reference rebot_lerobot setup uses 3.10; Miniforge
+   is fine), then `pip install motorbridge`.
 2. Launch the gateway for zero-point setup:
    ```bash
    motorbridge-gateway
@@ -69,6 +70,24 @@ Before LeRobot can talk to the arm, initialize the motors with MotorBridge
 
 If any joint is offline here, LeRobot calibration and teleop will fail — fix it
 at this stage (wiring, CAN, motor ID) first.
+
+## 4b. LeRobot + the RS plugin
+
+The B601-RS does **not** run plain upstream LeRobot. The reference environment is:
+
+- a **`rebot_lerobot`** LeRobot install (editable, at `.../lerobot/src/lerobot/…`),
+- **plus the `lerobot_robot_seeed_b601` plugin** package — this is what registers
+  the `seeed_b601_rs_follower` / `rebot_arm_102_leader` types,
+- on **Python 3.10**.
+
+Install both per the [Seeed RS wiki](https://wiki.seeedstudio.com/rebot_arm_b601_rs_lerobot/).
+Then install this toolkit **into that same venv** so `stampbot` can drive it:
+
+```bash
+# with the rebot_lerobot venv active:
+pip install -e .            # or ./setup.sh
+python -c "import lerobot; print('ok')"
+```
 
 ## 5. Find the leader serial port
 

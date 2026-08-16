@@ -46,8 +46,13 @@ def _build_cameras(cams_cfg: dict) -> dict:
         if c.get("type", "opencv") != "opencv":
             raise SystemExit(f"camera '{name}': only 'opencv' is wired in the guided "
                              f"recorder; use `stampbot record --raw` for other types.")
-        out[name] = OpenCVCameraConfig(index_or_path=c["index_or_path"],
-                                       width=c["width"], height=c["height"], fps=c["fps"])
+        kwargs = dict(index_or_path=c["index_or_path"],
+                      width=c["width"], height=c["height"], fps=c["fps"])
+        if c.get("fourcc"):  # e.g. MJPG — needed for 640x480@30 on the RS USB cams
+            kwargs["fourcc"] = c["fourcc"]
+        # Pass fourcc only if this LeRobot's OpenCVCameraConfig accepts it.
+        fields = {f.name for f in dataclasses.fields(OpenCVCameraConfig)}
+        out[name] = OpenCVCameraConfig(**{k: v for k, v in kwargs.items() if k in fields})
     return out
 
 

@@ -30,21 +30,25 @@ leader:
   joint_directions: null
 
 # --- Cameras (observation space for the policy) -----------------------------
-# Remove a camera you don't have. `index_or_path` is the OpenCV device index
-# (0,1,2...) or a /dev/video* path. Wrist + top is the recommended setup.
+# Matches the reference RS rig: `front` on index 0, `side` on index 6, both
+# MJPG (fourcc "MJPG" is needed to hit 640x480@30 on these USB cams — without it
+# cv2.VideoCapture can hang on connect). `index_or_path` is the OpenCV device
+# index (0,1,2...) or a /dev/video* path. Remove a camera you don't have.
 cameras:
-  wrist:
+  front:
     type: opencv
-    index_or_path: 0        # <-- CHANGE ME
+    index_or_path: 0        # <-- CHANGE ME if different
     width: 640
     height: 480
     fps: 30
-  top:
+    fourcc: MJPG
+  side:
     type: opencv
-    index_or_path: 1        # <-- CHANGE ME
+    index_or_path: 6        # <-- CHANGE ME if different
     width: 640
     height: 480
     fps: 30
+    fourcc: MJPG
 
 # --- Dataset (recorded demonstrations) --------------------------------------
 dataset:

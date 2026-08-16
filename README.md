@@ -18,8 +18,9 @@ Edit one config file and you have the whole loop: teleop → record → train �
 
 ```bash
 git clone https://github.com/Dillonjohnson7/StampBot.git && cd StampBot
-./setup.sh                              # venv + toolkit + LeRobot + reBot drivers
-source .venv/bin/activate
+# activate your rebot_lerobot venv first (LeRobot + the RS plugin) — see
+# docs/hardware-bringup.md — then install this CLI into it:
+./setup.sh                              # pip install -e . (into the active venv)
 $EDITOR configs/stampbot.local.yaml     # your ports, repo_id, cameras
 
 stampbot can-up && stampbot doctor      # bring up CAN, check everything is ✅

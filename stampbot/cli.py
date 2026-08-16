@@ -25,7 +25,8 @@ from pathlib import Path
 
 from .config import load_config, robot_flags, teleop_flags, dataset_flags
 
-INSTALL_HINT = 'install LeRobot + reBot drivers: pip install -e ".[robot]"'
+INSTALL_HINT = ("install LeRobot + the RS plugin (lerobot_robot_seeed_b601) per "
+                "docs/hardware-bringup.md, then `pip install -e .` in that venv")
 # LeRobot policy types that are slow VLAs and benefit from real-time chunking.
 VLA_POLICIES = {"pi0", "pi05", "pi0.5", "smolvla"}
 
