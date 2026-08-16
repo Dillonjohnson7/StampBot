@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# StampBot setup. Installs the `stampbot`/`sb` CLI. LeRobot + the RS plugin are
+# XyloBot setup. Installs the `xb`/`xylobot` CLI. LeRobot + the RS plugin are
 # NOT installed here — the B601-RS uses a specific `rebot_lerobot` + plugin build
-# (see docs/hardware-bringup.md). The right move is to install StampBot INTO that
+# (see docs/hardware-bringup.md). The right move is to install XyloBot INTO that
 # existing environment.
 #
 # The rebot arms use uv, so this prefers `uv pip` (a `uv venv` has no `pip`).
@@ -54,5 +54,5 @@ fi
 echo
 echo "Next:"
 echo "  1) edit configs/stampbot.local.yaml  (ports, repo_id, cameras)"
-echo "  2) sb doctor"
-echo "  3) sb can-up → sb calibrate all → sb teleop"
+echo "  2) xb doctor"
+echo "  3) xb can-up → xb calibrate all → xb teleop"
