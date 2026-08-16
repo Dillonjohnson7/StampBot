@@ -1,8 +1,7 @@
 # StampBot 🤖✋
 
 The stamp is built into the end-effector. The arm learns to **find a person's
-hand and gently press the stamp onto it** — no inking, no paper, just locate the
-hand and make a careful, light-force contact. Trained by imitation learning from
+hand and gently press the stamp onto it** — trained by imitation learning from
 teleoperated demos with [LeRobot](https://github.com/huggingface/lerobot).
 
 Edit one config file and you have the whole loop: teleop → record → train → deploy.
