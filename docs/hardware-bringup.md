@@ -59,8 +59,8 @@ candump can0                   # (can-utils) shows traffic when a motor moves
 Before LeRobot can talk to the arm, initialize the motors with MotorBridge
 (model **`rebot-arm-robstride`**):
 
-1. Python **3.10** env (the reference rebot_lerobot setup uses 3.10; Miniforge
-   is fine), then `pip install motorbridge`.
+1. Python **3.10** env with **uv** (what the arms use): `uv venv --python 3.10`,
+   then `uv pip install motorbridge`.
 2. Launch the gateway for zero-point setup:
    ```bash
    motorbridge-gateway
@@ -84,8 +84,8 @@ Install both per the [Seeed RS wiki](https://wiki.seeedstudio.com/rebot_arm_b601
 Then install this toolkit **into that same venv** so `stampbot` can drive it:
 
 ```bash
-# with the rebot_lerobot venv active:
-pip install -e .            # or ./setup.sh
+# with the rebot_lerobot .venv active (uv-managed):
+uv pip install -e .         # or ./setup.sh  (falls back to pip if no uv)
 python -c "import lerobot; print('ok')"
 ```
 
