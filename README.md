@@ -46,7 +46,7 @@ LeRobot call instead of running it; `make help` lists `make` equivalents.
 | `stampbot can-up` | Bring up SocketCAN (`can0`) for the RS follower |
 | `stampbot calibrate {all,follower,leader}` | Home-pose calibration (one-time on RS) |
 | `stampbot teleop [--display]` | Drive the follower with the leader |
-| `stampbot record [-n N] [--resume]` | Record demonstrations |
+| `stampbot record [-n N] [--display]` | Record demos — **guided** flow (`--raw` for plain CLI) |
 | `stampbot replay --episode N` | Replay an episode on the arm |
 | `stampbot visualize --episode N` | View an episode |
 | `stampbot train [--policy act\|pi0\|pi05]` | Train the policy |

@@ -160,6 +160,10 @@ def cmd_teleop(cfg, args):
 
 
 def cmd_record(cfg, args):
+    # Guided interactive recorder by default; --raw drops to plain lerobot-record.
+    if not args.raw and not args.dry_run:
+        from .record_guided import run as run_guided
+        return run_guided(cfg, display=args.display, num_episodes=args.num_episodes)
     if args.num_episodes is not None:
         cfg["dataset"]["num_episodes"] = args.num_episodes
     if args.resume and not cfg["dataset"].get("root"):
@@ -272,10 +276,13 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--display", action="store_true", help="show camera feeds")
     t.set_defaults(func=cmd_teleop)
 
-    r = add("record", help="record demonstrations")
-    r.add_argument("-n", "--num-episodes", type=int, help="override episode count")
+    r = add("record", help="record demonstrations (guided interactive flow)")
+    r.add_argument("-n", "--num-episodes", type=int, help="demos to record this run")
+    r.add_argument("--display", action="store_true", help="show camera feeds (rerun)")
+    r.add_argument("--raw", action="store_true",
+                   help="use the plain lerobot-record CLI instead of the guided flow")
     r.add_argument("--resume", action="store_true",
-                   help="add episodes to an existing dataset (needs dataset.root)")
+                   help="[--raw] add episodes to an existing dataset (needs dataset.root)")
     r.set_defaults(func=cmd_record)
 
     rp = add("replay", help="replay a recorded episode on the arm")

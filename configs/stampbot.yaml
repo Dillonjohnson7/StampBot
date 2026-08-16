@@ -58,6 +58,14 @@ dataset:
   reset_time_s: 10          # pause between episodes to reset the scene
   push_to_hub: true         # upload to Hugging Face Hub after recording
   root: null                # local dir override (null = ~/.cache/huggingface/lerobot)
+  # The guided recorder cycles these hints each demo so you vary the scene.
+  # For hand-stamping, vary where/how the helper presents the hand:
+  start_states:
+    - "hand at LEFT of the workspace, back of hand up"
+    - "hand CENTER, slightly angled"
+    - "hand at RIGHT, back of hand up"
+    - "hand CENTER, closer to the arm"
+    - "hand FAR, near the edge of reach"
 
 # --- Policy / training ------------------------------------------------------
 policy:

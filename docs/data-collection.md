@@ -13,17 +13,27 @@ the whole game for imitation learning. This is the SOP for a clean dataset.
 4. `stampbot teleop --display` — confirm the follower tracks the leader and the
    camera(s) clearly see the hand region. Fix any reversed joints.
 
-## Safety (you are pressing on a person)
+## Setup: two people
 
-- **Start with a stand-in**, not a real hand: a foam block, a mannequin hand, or
-  your own gloved hand behind a barrier, until the motion is reliable.
-- Keep teleop/rollout **speeds low**. Keep an **e-stop / kill** within reach and
-  the 48V supply switch accessible.
-- Demonstrate a **light, brief contact** — a soft press, then retract. Never a
-  hard or sustained push. The policy imitates your force profile, so gentle
-  demos → gentle policy.
-- During `stampbot eval`, run the **base** (non-recording) strategy first at
-  short `--duration`, with a stand-in hand, before any real hand.
+Collection is teleoperated, so a human is always in the loop:
+
+- **Operator** drives the **leader** arm; the follower (with the stamp) mirrors
+  it live.
+- **Helper** presents their **hand** under the follower and **moves it to a new
+  position each demo** (the guided recorder prints a cycling position hint).
+
+Because the operator is in direct control the whole time, recording on a real
+hand is fine — just work at low speed and demonstrate a **light, brief contact**
+(soft press, then retract). The policy imitates your force profile, so gentle
+demos → a gentle policy.
+
+## Safety
+
+- Keep speeds low; keep an **e-stop / kill** within reach and the 48V supply
+  switch accessible.
+- The autonomous step is where caution matters: during `stampbot eval`, run the
+  **base** (non-recording) strategy first at short `--duration` against a
+  **stand-in** (foam/mannequin) before any real hand.
 
 ## Scene setup (keep it consistent, vary the hand)
 
@@ -38,20 +48,42 @@ the whole game for imitation learning. This is the SOP for a clean dataset.
 - Keep the **contact target consistent** (e.g. back of the hand) so the label is
   unambiguous.
 
-## Record
+## Record (guided flow)
+
+`stampbot record` runs a guided, step-by-step recorder — you press ENTER to
+start each demo, ENTER again to stop (so a demo is exactly as long as it needs
+to be), then keep or redo it:
 
 ```bash
-stampbot record            # uses num_episodes from the config
-stampbot record -n 10      # quick batch of 10
-stampbot record --resume   # add episodes (requires dataset.root; see below)
+stampbot record            # target = num_episodes from config
+stampbot record -n 10      # just 10 demos this run
+stampbot record --display  # also show the camera feeds (rerun)
 ```
 
-During recording, LeRobot's keyboard controls (`→`/`n` next, `←`/`r` re-record,
-`ESC`/`q` stop) let you drop a bad episode and redo it. Use them — don't keep
-sloppy demos.
+Each episode:
 
-> **Resuming** needs `dataset.root` set in your config, and on resume
-> `num_episodes` means the number of **additional** episodes, not the new total.
+```
+EPISODE 12   (demo 3 of 10 this run · 11 saved total)
+STEP 1 · SET UP
+ • Start state: hand at RIGHT, back of hand up  (cycles every demo)
+ • Move the LEADER arm to your start pose (follower mirrors live).
+ • Have the helper present the hand; drive the task deliberately.
+ >> Press ENTER to START recording (q = finish session):
+ 🔴 RECORDING… perform the task now.
+ >> Press ENTER to STOP.
+ Captured ~430 frames (14.3s).
+STEP 3 · KEEP THIS DEMO?  [ENTER]=keep · r=redo · q=save & quit:
+ ✓ Saved. Good episodes total: 12
+STEP 4 · RESET — reset the scene / hand position for the next demo.
+```
+
+The start-state hints come from `dataset.start_states` in the config — edit them
+to match how your helper should place the hand. On finish, the dataset is
+finalized and (if `push_to_hub: true`) uploaded.
+
+**Prefer the plain LeRobot loop?** `stampbot record --raw` runs `lerobot-record`
+instead (supports `--resume`, which needs `dataset.root` set; on resume
+`num_episodes` means *additional* episodes, not the new total).
 
 ## What makes a good hand-stamp demo
 
