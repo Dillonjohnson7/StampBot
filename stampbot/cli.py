@@ -57,7 +57,12 @@ def _run(cmd: list[str], *, dry_run: bool) -> int:
             f"       Run `stampbot doctor`, or {INSTALL_HINT}."
         )
     print(f"\n$ {printable}\n", flush=True)
-    return subprocess.call([exe] + cmd[1:])
+    try:
+        return subprocess.call([exe] + cmd[1:])
+    except KeyboardInterrupt:
+        # Ctrl+C reaches the child too; let it shut down (safe_zero etc.) and
+        # exit quietly instead of dumping a Python traceback.
+        return 130
 
 
 # --- commands ---------------------------------------------------------------
