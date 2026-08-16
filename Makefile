@@ -6,7 +6,7 @@ help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-setup:  ## Create venv + install toolkit + LeRobot
+setup:  ## Create venv + install the xb toolkit into the active venv
 	./setup.sh
 
 doctor:  ## Check the environment is ready
@@ -34,6 +34,9 @@ train:  ## Train the policy
 	xb train
 
 eval:  ## Run a trained policy (make eval P=outputs/train/act_xylobot/checkpoints/last/pretrained_model)
+ifndef P
+	$(error set P=<policy-path>, e.g. make eval P=outputs/train/act_xylobot/checkpoints/last/pretrained_model)
+endif
 	xb eval --policy-path $(P)
 
 lint:  ## Lint the toolkit

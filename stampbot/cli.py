@@ -99,8 +99,18 @@ def cmd_doctor(cfg, args):
     check(f"leader port exists ({l_port})", l_port.exists(),
           "edit configs/stampbot(.local).yaml; run `xylobot find-ports`")
 
+    # Camera devices — the most common thing that blocks recording (the scene
+    # cam can be a /dev/video* path grabbed by pipewire).
+    for name, c in (cfg.get("cameras") or {}).items():
+        dev = c.get("index_or_path")
+        if isinstance(dev, str) and dev.startswith("/dev/"):
+            check(f"camera '{name}' device exists ({dev})", Path(dev).exists(),
+                  "run `lerobot-find-cameras opencv`; if grabbed, "
+                  "`systemctl --user restart wireplumber`")
+
     # RS persists calibration to JSON, keyed by id — check it's been done once.
-    cal = Path.home() / ".cache/huggingface/lerobot/calibration"
+    cal = Path(os.environ.get("HF_LEROBOT_HOME",
+                              Path.home() / ".cache/huggingface/lerobot")) / "calibration"
     f_id, l_id = cfg["follower"]["id"], cfg["leader"]["id"]
     f_cal = (cal / "robots").exists() and any((cal / "robots").rglob(f"{f_id}.json"))
     l_cal = (cal / "teleoperators").exists() and any((cal / "teleoperators").rglob(f"{l_id}.json"))
@@ -185,7 +195,11 @@ def cmd_record(cfg, args):
     # Guided interactive recorder by default; --raw drops to plain lerobot-record.
     if not args.raw and not args.dry_run:
         from .record_guided import run as run_guided
-        return run_guided(cfg, display=args.display, num_episodes=args.num_episodes)
+        try:
+            return run_guided(cfg, display=args.display, num_episodes=args.num_episodes)
+        except KeyboardInterrupt:
+            print("\ninterrupted — saved episodes are kept.")
+            return 130
     if args.num_episodes is not None:
         cfg["dataset"]["num_episodes"] = args.num_episodes
     if args.resume and not cfg["dataset"].get("root"):
@@ -195,9 +209,9 @@ def cmd_record(cfg, args):
             "       `dataset.num_episodes` means the number of NEW episodes to add.\n"
             "       See docs/data-collection.md."
         )
-    cmd = ["lerobot-record",
-           *robot_flags(cfg), *teleop_flags(cfg), *dataset_flags(cfg),
-           "--display_data=true"]
+    cmd = ["lerobot-record", *robot_flags(cfg), *teleop_flags(cfg), *dataset_flags(cfg)]
+    if args.display:  # rerun viewer only when asked (headless/SSH can't show it)
+        cmd.append("--display_data=true")
     if args.resume:
         cmd.append("--resume=true")
     return _run(cmd, dry_run=args.dry_run)
@@ -209,16 +223,21 @@ def cmd_replay(cfg, args):
            *robot_flags(cfg, cameras=False),
            f"--dataset.repo_id={cfg['dataset']['repo_id']}",
            f"--dataset.episode={args.episode}"]
+    if cfg["dataset"].get("root"):
+        cmd.append(f"--dataset.root={cfg['dataset']['root']}")
     return _run(cmd, dry_run=args.dry_run)
 
 
 def cmd_visualize(cfg, args):
     rid = cfg["dataset"]["repo_id"]
+    root = cfg["dataset"].get("root")
     # Prefer the local viewer if this LeRobot build ships it; otherwise point at
     # the online viewer (works for any dataset pushed to the Hub).
-    if shutil.which("lerobot-dataset-viz"):
-        return _run(["lerobot-dataset-viz", f"--repo-id={rid}",
-                     f"--episode-index={args.episode}"], dry_run=args.dry_run)
+    if _bin("lerobot-dataset-viz"):
+        cmd = ["lerobot-dataset-viz", f"--repo-id={rid}", f"--episode-index={args.episode}"]
+        if root:
+            cmd.append(f"--root={root}")
+        return _run(cmd, dry_run=args.dry_run)
     url = f"https://huggingface.co/spaces/lerobot/visualize_dataset?dataset={rid}&episode={args.episode}"
     if args.dry_run:
         print(f"# open: {url}")
@@ -241,6 +260,8 @@ def cmd_train(cfg, args):
            f"--batch_size={p['batch_size']}",
            f"--steps={p['steps']}",
            f"--wandb.enable={str(bool(p.get('wandb', False))).lower()}"]
+    if cfg["dataset"].get("root"):  # locally-rooted dataset (e.g. from --resume)
+        cmd.append(f"--dataset.root={cfg['dataset']['root']}")
     return _run(cmd, dry_run=args.dry_run)
 
 
@@ -263,10 +284,18 @@ def cmd_eval(cfg, args):
             cmd.append(f"--task={task}")
         if ptype in VLA_POLICIES:  # smooth execution for slow VLA policies (pi0/pi05)
             cmd.append("--inference.type=rtc")
-    else:  # LeRobot 0.4.4: deploy the policy through record
+    else:  # LeRobot 0.4.4: no lerobot-rollout — deploy the policy via record
+        print("note: this LeRobot has no lerobot-rollout; eval runs the policy "
+              "through lerobot-record. --policy type/rtc has no effect here; "
+              "--duration sets the rollout length.", file=sys.stderr)
+        d = cfg["dataset"]
+        eval_root = (d["root"] + "_eval") if d.get("root") else None  # don't collide with training root
         cmd = ["lerobot-record",
                *robot_flags(cfg, cameras=True),
-               *dataset_flags(cfg, repo_id=eval_repo),
+               # one rollout of --duration seconds; upload only when --record
+               *dataset_flags(cfg, repo_id=eval_repo, root=eval_root,
+                              num_episodes=1, episode_time_s=args.duration,
+                              push_to_hub=bool(args.record)),
                f"--policy.path={args.policy_path}",
                "--display_data=true"]
     return _run(cmd, dry_run=args.dry_run)
@@ -329,7 +358,8 @@ def build_parser() -> argparse.ArgumentParser:
     e = add("eval", help="run a trained policy on the real arm")
     e.add_argument("--policy-path", required=True, help="path or HF id of the trained policy")
     e.add_argument("--policy", help="policy type (enables rtc for VLA policies)")
-    e.add_argument("--record", action="store_true", help="record + upload eval episodes")
+    e.add_argument("--record", action="store_true",
+                   help="upload the eval rollout to the Hub (on 0.4.4 it's recorded locally either way)")
     e.add_argument("--duration", type=int, default=600, help="rollout seconds (default 600)")
     e.set_defaults(func=cmd_eval)
 

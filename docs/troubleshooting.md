@@ -5,7 +5,7 @@
 - **`can0` doesn't exist** → USB-CAN adapter not recognized. Check `dmesg`.
   On Jetson, install the PCAN driver (see the Seeed wiki).
 - **`can-up` fails / interface won't come up** → wrong bitrate or adapter busy.
-  Confirm `sudo ip link set can0 up type can bitrate 1000000` runs cleanly.
+  Run `xb can-up` (sets bitrate while the iface is DOWN, then brings it up).
 - **Arm doesn't move in teleop, no error** → confirm `candump can0` shows traffic;
   confirm `can_adapter: socketcan` and `type: seeed_b601_rs_follower` in config.
 - **`seeed_b601_rs_follower` is "unknown type"** → you're on plain upstream
@@ -16,8 +16,8 @@
 
 - **Leader port not found** → run `xylobot find-ports`. On Linux:
   `sudo apt remove brltty` and `sudo chmod 666 /dev/ttyUSB*`.
-- **A joint moves backwards** → flip its sign in `leader.joint_directions`
-  (see [calibration.md](./calibration.md)).
+- **A joint moves backwards** → this is a FOLLOWER motor-direction issue on the RS
+  (the RS leader has no joint_directions; see [calibration.md](./calibration.md)).
 
 ## Cameras
 

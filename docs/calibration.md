@@ -38,12 +38,12 @@ Preview without running: `xylobot calibrate all --dry-run`.
 
 ## Reversed joints
 
-If a joint moves opposite to the leader during teleop, flip its sign in
-`configs/stampbot.local.yaml`:
-
-```yaml
-leader:
-  joint_directions: {"<joint>": -1}   # confirm the joint names from teleop output
-```
+On the RS the **leader has no `joint_directions` field** — direction handling
+lives on the **follower**. If a joint moves opposite to the leader during teleop,
+it's a follower motor-direction issue: it's baked into the reBot follower plugin
+config (`joint_directions` on the follower, set by the plugin), not something you
+flip in `stampbot.local.yaml`. If a joint is genuinely reversed, re-check the
+MotorBridge motor init / calibration; don't add `leader.joint_directions` (the
+CLI ignores it and warns).
 
 Next: [data-collection.md](./data-collection.md).

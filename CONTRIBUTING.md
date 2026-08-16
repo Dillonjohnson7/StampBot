@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-./setup.sh          # or ./setup.sh --lite for toolkit-only (no LeRobot/hardware)
+./setup.sh          # installs the xb toolkit into your active rebot_lerobot venv
 source .venv/bin/activate
 ```
 

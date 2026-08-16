@@ -15,7 +15,10 @@ sys.path.insert(0, str(REPO))
 
 calls = {"save": 0, "clear": 0, "finalize": 0, "push": 0, "connect": 0,
          "disconnect": 0, "record_loop": 0, "enc_enter": 0, "enc_exit": 0,
-         "register": 0, "live": 0}
+         "register": 0, "live": 0, "create": 0, "ctor": 0, "img_writer": 0}
+
+# controls fake record_loop behavior: "normal" waits for exit_early; "raise" throws
+BEHAVIOR = {"mode": "normal"}
 
 
 @dataclasses.dataclass
@@ -54,10 +57,13 @@ class FakeTeleop(FakeRobot):
 
 
 class FakeDataset:
-    def __init__(self): self.num_episodes = 0
+    def __init__(self, repo_id=None, root=None, **kw):  # resume path: LeRobotDataset(repo_id, root=)
+        self.num_episodes = 0
+        calls["ctor"] += 1
     @classmethod
     def create(cls, **kw):
-        d = cls(); d.create_kwargs = kw; return d
+        d = cls(); calls["ctor"] -= 1; calls["create"] += 1; d.create_kwargs = kw; return d
+    def start_image_writer(self, **kw): calls["img_writer"] += 1
     def save_episode(self): calls["save"] += 1; self.num_episodes += 1
     def clear_episode_buffer(self): calls["clear"] += 1
     def finalize(self): calls["finalize"] += 1
@@ -67,6 +73,8 @@ class FakeDataset:
 def fake_record_loop(**kw):
     import time
     calls["live" if kw.get("dataset") is None else "record_loop"] += 1
+    if BEHAVIOR["mode"] == "raise":
+        raise RuntimeError("boom")
     ev = kw["events"]
     for _ in range(100000):
         if ev.get("exit_early"):
@@ -129,12 +137,18 @@ CFG = {
 }
 
 
-def _run(responses, num_episodes=2):
+_ORIG_INPUT = builtins.input
+
+
+def _run(responses, num_episodes=2, cfg=None):
     for k in calls:
         calls[k] = 0
     builtins.input = _scripted(responses)
-    return record_guided.run(dict(CFG, dataset=dict(CFG["dataset"])),
-                             display=False, num_episodes=num_episodes)
+    try:
+        return record_guided.run(cfg or dict(CFG, dataset=dict(CFG["dataset"])),
+                                 display=False, num_episodes=num_episodes)
+    finally:
+        builtins.input = _ORIG_INPUT  # don't leak the monkeypatch across tests
 
 
 def test_two_demos_with_one_redo():
@@ -149,6 +163,36 @@ def test_two_demos_with_one_redo():
     assert calls["push"] == 1          # saved>0 and push_to_hub true
     assert calls["enc_enter"] == 1 and calls["enc_exit"] == 1
     assert calls["register"] == 1      # third-party RS plugin types registered
+    assert calls["create"] == 1        # fresh dataset created (no existing dir)
+
+
+def test_resume_existing_dataset():
+    import tempfile, os as _os
+    dd = tempfile.mkdtemp()
+    open(_os.path.join(dd, "meta"), "w").close()  # non-empty -> resume
+    cfg = dict(CFG, dataset=dict(CFG["dataset"], root=dd))
+    _run(["q"], num_episodes=1, cfg=cfg)           # q at first SET UP -> finish
+    assert calls["create"] == 0 and calls["ctor"] == 1   # resumed, not created
+    assert calls["img_writer"] == 1                       # image writer started on resume
+
+
+def test_quit_at_reset():
+    _run(["", "", "", "q"])            # demo 1 kept, then q at the RESET prompt
+    assert calls["save"] == 1
+
+
+def test_thread_exception_propagates_and_cleans_up():
+    BEHAVIOR["mode"] = "raise"
+    raised = False
+    try:
+        try:
+            _run(["", "", ""])
+        except RuntimeError:
+            raised = True
+    finally:
+        BEHAVIOR["mode"] = "normal"
+    assert raised                      # record_loop error surfaced, not swallowed
+    assert calls["disconnect"] == 2    # cleanup still ran in the finally block
 
 
 def test_quit_before_any_demo():

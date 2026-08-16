@@ -27,3 +27,7 @@ configs/stampbot.local.yaml
 # Secrets
 .env
 wandb/
+
+# tooling caches
+.pytest_cache/
+.ruff_cache/

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -39,8 +40,11 @@ def load_config(path: str | os.PathLike | None = None) -> dict[str, Any]:
         raise SystemExit(f"Config not found: {base_path}")
     cfg = yaml.safe_load(base_path.read_text()) or {}
 
+    # Overlay the gitignored local config whenever it exists and isn't the base
+    # file itself — including when --config explicitly names the default file, so
+    # `xb --config configs/stampbot.yaml ...` behaves like plain `xb ...`.
     local = base_path.with_name("stampbot.local.yaml")
-    if path is None and local.exists():
+    if local.exists() and local.resolve() != base_path.resolve():
         cfg = _deep_merge(cfg, yaml.safe_load(local.read_text()) or {})
     return cfg
 
@@ -76,24 +80,34 @@ def teleop_flags(cfg: dict) -> list[str]:
         f"--teleop.port={t['port']}",
         f"--teleop.id={t['id']}",
     ]
-    jd = t.get("joint_directions")
-    if jd:
-        flags.append("--teleop.joint_directions=" + json.dumps(jd, separators=(",", ":")))
+    # The RS leader (rebot_arm_102_leader) has NO joint_directions field —
+    # emitting --teleop.joint_directions would crash the leader config. Direction
+    # fixes live on the follower. Warn (don't emit) if it's set.
+    if t.get("joint_directions"):
+        print("warning: leader.joint_directions is ignored on the RS leader "
+              "(no such field) — set direction fixes on the follower instead.",
+              file=sys.stderr)
     return flags
 
 
-def dataset_flags(cfg: dict, *, repo_id: str | None = None) -> list[str]:
+def dataset_flags(cfg: dict, *, repo_id: str | None = None, root: str | None = None,
+                  num_episodes: int | None = None, episode_time_s: int | None = None,
+                  push_to_hub: bool | None = None) -> list[str]:
     d = cfg["dataset"]
     rid = repo_id or d["repo_id"]
+    root_v = root if root is not None else d.get("root")
+    ne = num_episodes if num_episodes is not None else d["num_episodes"]
+    ets = episode_time_s if episode_time_s is not None else d["episode_time_s"]
+    push = d.get("push_to_hub", False) if push_to_hub is None else push_to_hub
     flags = [
         f"--dataset.repo_id={rid}",
         f"--dataset.single_task={d['single_task']}",
         f"--dataset.fps={d['fps']}",
-        f"--dataset.num_episodes={d['num_episodes']}",
-        f"--dataset.episode_time_s={d['episode_time_s']}",
+        f"--dataset.num_episodes={ne}",
+        f"--dataset.episode_time_s={ets}",
         f"--dataset.reset_time_s={d['reset_time_s']}",
-        f"--dataset.push_to_hub={str(bool(d.get('push_to_hub', False))).lower()}",
+        f"--dataset.push_to_hub={str(bool(push)).lower()}",
     ]
-    if d.get("root"):
-        flags.append(f"--dataset.root={d['root']}")
+    if root_v:
+        flags.append(f"--dataset.root={root_v}")
     return flags

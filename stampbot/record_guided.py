@@ -18,12 +18,13 @@ message — fall back to the plain CLI: `xylobot record --raw`.
 from __future__ import annotations
 
 import contextlib
-import os
 import dataclasses
 import importlib
+import os
 import threading
 import time
 from itertools import cycle
+from pathlib import Path
 
 
 def _imp(name, *module_paths):
@@ -96,7 +97,7 @@ def _build_cameras(cams_cfg: dict) -> dict:
                       width=c["width"], height=c["height"], fps=c["fps"])
         if c.get("fourcc"):  # e.g. MJPG — needed for 640x480@30 on the RS USB cams
             kwargs["fourcc"] = c["fourcc"]
-        if c.get("warmup_s"):  # slow-start cams (the HD scene cam needs >1s for frame 1)
+        if c.get("warmup_s") is not None:  # slow-start cams (HD scene cam needs >1s for frame 1)
             kwargs["warmup_s"] = c["warmup_s"]
         out[name] = OpenCVCameraConfig(**{k: v for k, v in kwargs.items() if k in fields})
     return out
@@ -234,21 +235,26 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
 
     action_features = hw_to_dataset_features(robot.action_features, "action")
     obs_features = hw_to_dataset_features(robot.observation_features, "observation")
-    try:
+    # Resume iff the dataset dir already exists+non-empty; otherwise create. We
+    # check the path rather than catching create() failures, so a real create
+    # error (bad root, feature mismatch) surfaces instead of being mistaken for
+    # "already exists".
+    default_home = Path(os.environ.get("HF_LEROBOT_HOME",
+                                       Path.home() / ".cache/huggingface/lerobot"))
+    ds_dir = Path(d["root"]) if d.get("root") else default_home / d["repo_id"]
+    if ds_dir.exists() and any(ds_dir.iterdir()):
+        dataset = LeRobotDataset(d["repo_id"], root=d.get("root"))
+        if cams and hasattr(dataset, "start_image_writer"):
+            dataset.start_image_writer(num_processes=0, num_threads=4)
+        print(f"↩  Resuming existing dataset '{d['repo_id']}' "
+              f"({dataset.num_episodes} episode(s) already saved).")
+    else:
         dataset = LeRobotDataset.create(
             repo_id=d["repo_id"], fps=fps,
             features={**action_features, **obs_features},
             robot_type=robot.name, use_videos=True, image_writer_threads=4,
             root=d.get("root"),
         )
-    except Exception:
-        # Dataset already exists (e.g. a previous session) → resume into it,
-        # the same way lerobot-record --resume does on this LeRobot version.
-        dataset = LeRobotDataset(d["repo_id"], root=d.get("root"))
-        if cams and hasattr(dataset, "start_image_writer"):
-            dataset.start_image_writer(num_processes=0, num_threads=4)
-        print(f"↩  Resuming existing dataset '{d['repo_id']}' "
-              f"({dataset.num_episodes} episode(s) already saved).")
 
     procs = make_default_processors()
     events = {"exit_early": False, "rerecord_episode": False, "stop_recording": False}
@@ -260,6 +266,7 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
     )
 
     saved = 0
+    rc = 0
     try:
         robot.connect()
         teleop.connect()
@@ -273,7 +280,8 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
             for i in range(target):
                 state = next(state_cycle)
                 print(f"\n{BAR}\n EPISODE {dataset.num_episodes + 1}   "
-                      f"(demo {i + 1} of {target} this run · {saved} saved total)\n{BAR}\n")
+                      f"(demo {i + 1} of {target} this run · "
+                      f"{dataset.num_episodes} in dataset)\n{BAR}\n")
                 while True:  # repeat until this demo is kept
                     print("STEP 1 · SET UP  (teleop LIVE — follower mirrors the leader)")
                     print(f" • Start state: {state}  (cycles every demo)")
@@ -293,7 +301,11 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
                               f"dataset.episode_time_s if demos need longer.")
                     print(f"\n Captured ~{int(elapsed * fps)} frames ({elapsed:.1f}s).\n")
 
-                    choice = input("STEP 3 · KEEP THIS DEMO?  [ENTER]=keep · r=redo · q=save & quit: ").strip().lower()
+                    try:
+                        choice = input("STEP 3 · KEEP THIS DEMO?  "
+                                       "[ENTER]=keep · r=redo · q=save & quit: ").strip().lower()
+                    except (EOFError, KeyboardInterrupt):
+                        choice = "q"  # Ctrl+C here saves this demo and finishes
                     if choice == "r":
                         dataset.clear_episode_buffer()
                         print(" ↺ Discarded. Re-recording this demo…\n")
@@ -321,17 +333,23 @@ def run(cfg: dict, *, display: bool = False, num_episodes: int | None = None) ->
             with contextlib.suppress(Exception):
                 shutdown_visualization("rerun")
         print("Finalizing dataset…")
-        with contextlib.suppress(Exception):
+        try:
             dataset.finalize()
+        except Exception as e:  # a failed video-encode must NOT look like success
+            print(f"⚠ finalize failed: {type(e).__name__}: {e}")
+            rc = 1
         _disconnect(robot)
         _disconnect(teleop)
         if saved and d.get("push_to_hub"):
             print("Uploading to the Hugging Face Hub…")
-            with contextlib.suppress(Exception):
+            try:
                 dataset.push_to_hub()
+            except Exception as e:  # data is saved locally; surface the failure
+                print(f"⚠ Hub upload failed (data kept locally): {type(e).__name__}: {e}")
+                rc = 1
         with contextlib.suppress(Exception):
             print(f"✓ Dataset '{d['repo_id']}' now has {dataset.num_episodes} episode(s).")
-    return 0
+    return rc
 
 
 class _Finish(Exception):

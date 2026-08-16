@@ -12,7 +12,7 @@
 # --- Follower arm: reBot Arm B601-RS (the arm that strikes the xylophone) ----
 # The RS follower talks over SocketCAN, so its "port" is a CAN interface
 # (can0), NOT a /dev/tty* serial device. Bring it up first:
-#     sudo ip link set can0 up type can bitrate 1000000     (or: stampbot can-up)
+#     xb can-up   (sets bitrate while the iface is DOWN, then brings it up)
 follower:
   type: seeed_b601_rs_follower
   port: can0                # CAN interface (not a serial path)
@@ -22,7 +22,7 @@ follower:
 # --- Leader arm: Star Arm / reBot Arm 102 (move by hand to demonstrate) ------
 leader:
   type: rebot_arm_102_leader
-  port: /dev/ttyUSB0        # <-- CHANGE ME if different (run `stampbot find-ports`)
+  port: /dev/ttyUSB0        # <-- CHANGE ME if different (run `xb find-ports`)
   id: rebot_arm_102_leader
   # NOTE: on the RS the leader has NO joint_directions field (verified on
   # hardware) — direction handling lives on the FOLLOWER. Leave this null;
