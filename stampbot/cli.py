@@ -73,7 +73,7 @@ def cmd_doctor(cfg, args):
 
     print("StampBot environment check\n")
     for tool in ["lerobot-find-port", "lerobot-calibrate", "lerobot-teleoperate",
-                 "lerobot-record", "lerobot-replay", "lerobot-rollout", "lerobot-train"]:
+                 "lerobot-record", "lerobot-replay", "lerobot-train"]:
         check(f"`{tool}` available", _bin(tool) is not None, INSTALL_HINT)
 
     # Follower on RS is a SocketCAN interface (can0), not a serial path.
@@ -107,8 +107,9 @@ def cmd_doctor(cfg, args):
     rid = cfg["dataset"]["repo_id"]
     check(f"dataset.repo_id set ({rid})", "CHANGE_ME" not in rid,
           "set <hf_user>/<name> in configs/stampbot.yaml")
-    check("Hugging Face CLI on PATH (for dataset upload)", shutil.which("hf") is not None,
-          "pip install huggingface_hub; then `hf auth login`")
+    check("Hugging Face CLI available (for dataset upload)",
+          (_bin("hf") or _bin("huggingface-cli")) is not None,
+          "install huggingface_hub; then `hf auth login`")
 
     try:
         import torch  # noqa
@@ -239,24 +240,30 @@ def cmd_train(cfg, args):
 
 
 def cmd_eval(cfg, args):
-    # Deploy a trained policy on the real arm with lerobot-rollout.
-    #   base   → autonomous rollout, no recording (quick check)
-    #   sentry → continuous recording + auto-upload (measure success at scale)
+    # Run a trained policy on the real arm. Newer LeRobot has `lerobot-rollout`;
+    # 0.4.4 (the reBot RS build) runs the policy via `lerobot-record --policy.path`.
     p = cfg["policy"]
     ptype = args.policy or p["type"]
     task = cfg["dataset"]["single_task"]
-    cmd = ["lerobot-rollout",
-           f"--strategy.type={'sentry' if args.record else 'base'}",
-           f"--policy.path={args.policy_path}",
-           *robot_flags(cfg, cameras=True),  # the policy needs image observations
-           f"--duration={args.duration}"]
-    if args.record:
-        cmd += [f"--dataset.repo_id={cfg['dataset']['repo_id']}_eval",
-                f"--dataset.single_task={task}"]
-    else:
-        cmd.append(f"--task={task}")
-    if ptype in VLA_POLICIES:  # smooth execution for slow VLA policies (pi0/pi05)
-        cmd.append("--inference.type=rtc")
+    eval_repo = cfg["dataset"]["repo_id"] + "_eval"
+    if _bin("lerobot-rollout"):
+        cmd = ["lerobot-rollout",
+               f"--strategy.type={'sentry' if args.record else 'base'}",
+               f"--policy.path={args.policy_path}",
+               *robot_flags(cfg, cameras=True),  # the policy needs image observations
+               f"--duration={args.duration}"]
+        if args.record:
+            cmd += [f"--dataset.repo_id={eval_repo}", f"--dataset.single_task={task}"]
+        else:
+            cmd.append(f"--task={task}")
+        if ptype in VLA_POLICIES:  # smooth execution for slow VLA policies (pi0/pi05)
+            cmd.append("--inference.type=rtc")
+    else:  # LeRobot 0.4.4: deploy the policy through record
+        cmd = ["lerobot-record",
+               *robot_flags(cfg, cameras=True),
+               *dataset_flags(cfg, repo_id=eval_repo),
+               f"--policy.path={args.policy_path}",
+               "--display_data=true"]
     return _run(cmd, dry_run=args.dry_run)
 
 
